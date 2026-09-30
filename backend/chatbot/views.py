@@ -1,46 +1,76 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from datetime import datetime
 
-from .repositories.message_repository import save_message
-from .rag import retrieve_context, generate_answer
+from .db import messages
+from .conversation import get_conversation_history
+from .agent import run_agent
 
 
-@api_view(["POST"])
+@api_view(['POST'])
 def chat(request):
 
-    user_message = request.data.get("message", "")
+    user_message = request.data.get('message', '').strip()
+
     session_id = request.data.get(
-        "session_id",
-        "demo-session"
+        'session_id',
+        'demo-session'
     )
 
-    # Retrieve relevant knowledge
-    context_docs = retrieve_context(
+    if not user_message:
+        return Response(
+            {"error": "Message cannot be empty"},
+            status=400
+        )
+
+    # -----------------------------------
+    # 1. Get previous conversation
+    # -----------------------------------
+
+    history = get_conversation_history(
+        session_id,
+        limit=6
+    )
+
+    # -----------------------------------
+    # 2. Send query + history to agent
+    # -----------------------------------
+
+    result = run_agent(
         user_message,
-        top_k=2
+        history
     )
 
-    # Generate grounded answer
-    reply, sources = generate_answer(
-        user_message,
-        context_docs
-    )
+    # -----------------------------------
+    # 3. Save user message
+    # -----------------------------------
 
-    # Save user message
-    save_message(
-        session_id=session_id,
-        sender="user",
-        content=user_message
-    )
+    messages.insert_one({
+        "session_id": session_id,
+        "sender": "user",
+        "content": user_message,
+        "timestamp": datetime.utcnow(),
+    })
 
-    # Save bot response
-    save_message(
-        session_id=session_id,
-        sender="bot",
-        content=reply
-    )
+    # -----------------------------------
+    # 4. Save bot message
+    # -----------------------------------
+
+    messages.insert_one({
+        "session_id": session_id,
+        "sender": "bot",
+        "content": result["answer"],
+        "sources": result.get("sources", []),
+        "type": result.get("type", "general"),
+        "timestamp": datetime.utcnow(),
+    })
+
+    # -----------------------------------
+    # 5. Return response
+    # -----------------------------------
 
     return Response({
-        "answer": reply,
-        "sources": sources
+        "answer": result["answer"],
+        "sources": result.get("sources", []),
+        "type": result.get("type", "general")
     })

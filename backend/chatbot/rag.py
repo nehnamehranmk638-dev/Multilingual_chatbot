@@ -1,6 +1,7 @@
 from sentence_transformers import SentenceTransformer
 from groq import Groq
 from decouple import config
+from .db import messages as messages_collection
 
 from .repositories.knowledge_repository import vector_search
 
@@ -24,6 +25,56 @@ groq_client = Groq(
 # --------------------------------------------------
 # Retrieve relevant documents
 # --------------------------------------------------
+def get_recent_history(session_id, limit=6):
+    history = list(
+        messages_collection.find(
+            {"session_id": session_id}
+        )
+        .sort("timestamp", -1)
+        .limit(limit)
+    )
+
+    history.reverse()
+
+    return history
+
+def rewrite_query_with_context(query, history):
+    if not history:
+        return query
+
+    history_text = "\n".join(
+        f"{h['sender']}: {h['content']}"
+        for h in history
+    )
+
+    prompt = f"""Given this conversation history and a new user message,
+rewrite the new message as a standalone question that makes sense
+without the history.
+
+If the message is already standalone, return it unchanged.
+
+Reply with ONLY the rewritten question.
+
+History:
+{history_text}
+
+New message: {query}
+
+Standalone question:"""
+
+    response = client.chat.completions.create(
+        model="openai/gpt-oss-20b",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0,
+    )
+
+    return response.choices[0].message.content.strip()
+
 
 def retrieve_context(query, top_k=2):
     query_vector = embedding_model.encode(query).tolist()
