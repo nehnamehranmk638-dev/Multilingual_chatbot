@@ -2,31 +2,45 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from .repositories.message_repository import save_message
+from .rag import retrieve_context, generate_answer
 
 
 @api_view(["POST"])
 def chat(request):
+
     user_message = request.data.get("message", "")
-    session_id = request.data.get("session_id", "demo-session")
+    session_id = request.data.get(
+        "session_id",
+        "demo-session"
+    )
 
-    # M2: still an echo response.
-    # Real RAG/LLM will come in M3.
-    reply = f"You said: {user_message}"
+    # Retrieve relevant knowledge
+    context_docs = retrieve_context(
+        user_message,
+        top_k=2
+    )
 
-    # Save user's message
+    # Generate grounded answer
+    reply, sources = generate_answer(
+        user_message,
+        context_docs
+    )
+
+    # Save user message
     save_message(
         session_id=session_id,
         sender="user",
-        content=user_message,
+        content=user_message
     )
 
-    # Save chatbot's response
+    # Save bot response
     save_message(
         session_id=session_id,
         sender="bot",
-        content=reply,
+        content=reply
     )
 
     return Response({
-        "answer": reply
+        "answer": reply,
+        "sources": sources
     })
