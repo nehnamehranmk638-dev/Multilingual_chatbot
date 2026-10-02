@@ -1,6 +1,8 @@
 from django.urls import path
-from . import views
+from .views import chat, speech_to_text
+
 
 urlpatterns = [
-    path('chat/', views.chat, name='chat'),
+    path('chat/', chat),
+    path('speech/', speech_to_text),
 ]

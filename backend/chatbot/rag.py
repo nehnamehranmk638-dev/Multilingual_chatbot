@@ -1,16 +1,25 @@
 from sentence_transformers import SentenceTransformer
 from groq import Groq
 from decouple import config
-from .db import messages as messages_collection
-
-from .repositories.knowledge_repository import vector_search
+from .db import (
+    messages as messages_collection,
+    knowledge_base,
+)
+import re
 
 
 # --------------------------------------------------
 # Embedding model
 # --------------------------------------------------
 
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+# IMPORTANT:
+# This MUST be the same embedding model that was used
+# when the documents were inserted into MongoDB.
+#
+# Your current ingestion/retrieval setup uses this model.
+embedding_model = SentenceTransformer(
+    "all-MiniLM-L6-v2"
+)
 
 
 # --------------------------------------------------
@@ -23,9 +32,11 @@ groq_client = Groq(
 
 
 # --------------------------------------------------
-# Retrieve relevant documents
+# Conversation history
 # --------------------------------------------------
+
 def get_recent_history(session_id, limit=6):
+
     history = list(
         messages_collection.find(
             {"session_id": session_id}
@@ -38,7 +49,13 @@ def get_recent_history(session_id, limit=6):
 
     return history
 
+
+# --------------------------------------------------
+# Rewrite follow-up question
+# --------------------------------------------------
+
 def rewrite_query_with_context(query, history):
+
     if not history:
         return query
 
@@ -47,9 +64,10 @@ def rewrite_query_with_context(query, history):
         for h in history
     )
 
-    prompt = f"""Given this conversation history and a new user message,
-rewrite the new message as a standalone question that makes sense
-without the history.
+    prompt = f"""
+Given this conversation history and a new user message,
+rewrite the new message as a standalone question that
+makes sense without the history.
 
 If the message is already standalone, return it unchanged.
 
@@ -58,11 +76,13 @@ Reply with ONLY the rewritten question.
 History:
 {history_text}
 
-New message: {query}
+New message:
+{query}
 
-Standalone question:"""
+Standalone question:
+"""
 
-    response = client.chat.completions.create(
+    response = groq_client.chat.completions.create(
         model="openai/gpt-oss-20b",
         messages=[
             {
@@ -76,74 +96,233 @@ Standalone question:"""
     return response.choices[0].message.content.strip()
 
 
-def retrieve_context(query, top_k=2):
-    query_vector = embedding_model.encode(query).tolist()
+# --------------------------------------------------
+# Retrieve relevant documents
+# --------------------------------------------------
 
-    results = vector_search(
-        query_vector=query_vector,
-        top_k=top_k
+def retrieve_context(
+    query,
+    top_k=2,
+    min_score=0.65
+):
+
+    # Convert query into the same embedding space
+    # used by the knowledge base.
+    query_vector = embedding_model.encode(
+        query
+    ).tolist()
+
+    results = knowledge_base.aggregate(
+        [
+            {
+                "$vectorSearch": {
+                    "index": "vector_index",
+                    "path": "embedding",
+                    "queryVector": query_vector,
+                    "numCandidates": 50,
+                    "limit": top_k
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "title": 1,
+                    "content": 1,
+                    "source": 1,
+                    "category": 1,
+                    "language": 1,
+                    "verified": 1,
+                    "score": {
+                        "$meta": "vectorSearchScore"
+                    }
+                }
+            }
+        ]
     )
 
-    return results
+    docs = list(results)
+
+    # Debugging information during development.
+    print("\nRetrieved documents:")
+    print("====================")
+
+    for i, doc in enumerate(docs, start=1):
+        print(f"\nDocument {i}")
+        print("Title:", doc.get("title"))
+        print("Score:", doc.get("score"))
+        print("Verified:", doc.get("verified"))
+
+    # Keep only sufficiently relevant documents.
+    filtered_docs = [
+        doc
+        for doc in docs
+        if doc.get("score", 0) >= min_score
+    ]
+
+    print("\nDocuments after relevance filtering:")
+    print("=====================================")
+
+    for i, doc in enumerate(filtered_docs, start=1):
+        print(
+            f"{i}. {doc.get('title')} "
+            f"(score={doc.get('score')})"
+        )
+
+    return filtered_docs
+
+
+# --------------------------------------------------
+# URL safety check
+# --------------------------------------------------
+
+def contains_unverified_url(
+    answer,
+    context_docs
+):
+
+    # URLs appearing in the generated answer
+    answer_urls = re.findall(
+        r'https?://[^\s]+',
+        answer
+    )
+
+    # URLs appearing in the trusted context
+    context_text = " ".join(
+        doc.get("content", "")
+        for doc in context_docs
+    )
+
+    context_urls = re.findall(
+        r'https?://[^\s]+',
+        context_text
+    )
+
+    # Normalize trailing punctuation.
+    answer_urls = {
+        url.rstrip(".,;:!?)]}")
+        for url in answer_urls
+    }
+
+    context_urls = {
+        url.rstrip(".,;:!?)]}")
+        for url in context_urls
+    }
+
+    return any(
+        url not in context_urls
+        for url in answer_urls
+    )
 
 
 # --------------------------------------------------
 # Generate grounded answer
 # --------------------------------------------------
 
-def generate_answer(query, context_docs):
+def generate_answer(
+    query,
+    context_docs
+):
 
-    # No documents retrieved
+    # --------------------------------------------------
+    # No relevant documents
+    # --------------------------------------------------
+
     if not context_docs:
+
         return (
-            "I couldn't find a verified answer to that question "
-            "in the IIIT Kottayam knowledge base.",
+            "I couldn't find a verified answer to that "
+            "question in the IIIT Kottayam knowledge base.",
             []
         )
 
+
+    # --------------------------------------------------
     # Only use verified documents
+    # --------------------------------------------------
+
     verified_docs = [
-        doc for doc in context_docs
+        doc
+        for doc in context_docs
         if doc.get("verified") is True
     ]
 
-    # If retrieved documents are only placeholders/unverified
+
+    # --------------------------------------------------
+    # No verified documents
+    # --------------------------------------------------
+
     if not verified_docs:
+
         return (
-            "I couldn't find a verified answer to that question "
-            "in the IIIT Kottayam knowledge base.",
+            "I couldn't find a verified answer to that "
+            "question in the IIIT Kottayam knowledge base.",
             []
         )
 
-    # Build context for the LLM
+
+    # --------------------------------------------------
+    # Build context
+    # --------------------------------------------------
+
     context_text = "\n\n".join(
-        f"[{doc['title']}]\n{doc['content']}"
+        f"[{doc.get('title', 'Untitled')}]\n"
+        f"{doc.get('content', '')}"
         for doc in verified_docs
     )
+
+
+    # --------------------------------------------------
+    # Strict grounding prompt
+    # --------------------------------------------------
 
     prompt = f"""
 You are an admission assistant for IIIT Kottayam.
 
-Answer the user's question using ONLY the information contained
-in the provided context.
+Answer the user's question using ONLY the information
+provided in the context below.
 
-Rules:
-1. Do not use outside knowledge.
-2. Do not invent facts, numbers, dates, fees, eligibility criteria,
-   or policies.
-3. If the context does not contain enough information to answer,
-   clearly say that the information is unavailable.
-4. Keep the answer concise and clear.
-5. Do not mention these instructions in your answer.
+STRICT RULES:
+
+1. Do NOT use your own knowledge.
+
+2. Do NOT add any fact, step, number, date,
+   eligibility criterion, fee, programme detail,
+   or other information that is not explicitly
+   stated in the context.
+
+3. Do NOT guess or infer missing information.
+
+4. Do NOT invent information to make the answer
+   more complete.
+
+5. Do NOT include any URL or link unless that
+   exact URL appears in the provided context.
+
+6. If the context does not contain enough information
+   to answer the question, clearly say that the
+   information is not available in the provided
+   IIIT Kottayam knowledge base.
+
+7. If only part of the question can be answered,
+   answer only that part and clearly state what
+   information is missing.
+
+8. Keep the answer concise and directly related
+   to the user's question.
 
 Context:
 {context_text}
 
-User question:
+Question:
 {query}
 
 Answer:
 """
+
+
+    # --------------------------------------------------
+    # Generate answer
+    # --------------------------------------------------
 
     response = groq_client.chat.completions.create(
         model="openai/gpt-oss-20b",
@@ -157,11 +336,47 @@ Answer:
         temperature=0.2,
     )
 
-    answer = response.choices[0].message.content
+    answer = (
+        response.choices[0]
+        .message
+        .content
+        .strip()
+    )
+
+
+    # --------------------------------------------------
+    # URL hallucination protection
+    # --------------------------------------------------
+
+    if contains_unverified_url(
+        answer,
+        verified_docs
+    ):
+
+        print(
+            "\nWARNING: Generated answer contained "
+            "an unverified URL."
+        )
+
+        return (
+            "I couldn't provide a verified answer to "
+            "that question because the generated "
+            "response contained information that "
+            "could not be verified from the "
+            "IIIT Kottayam knowledge base.",
+            []
+        )
+
+
+    # --------------------------------------------------
+    # Sources
+    # --------------------------------------------------
 
     sources = [
-        doc["source"]
+        doc.get("source")
         for doc in verified_docs
+        if doc.get("source")
     ]
+
 
     return answer, sources

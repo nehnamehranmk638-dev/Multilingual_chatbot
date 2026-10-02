@@ -3,6 +3,12 @@ import re
 from groq import Groq
 from decouple import config
 
+from .language import (
+    detect_language,
+    LANG_NAMES,
+    translate_text,
+)
+
 from .rag import (
     retrieve_context,
     generate_answer,
@@ -11,15 +17,118 @@ from .rag import (
 from .eligibility import check_eligibility
 
 
-# --------------------------------------------------
-# Groq client
-# --------------------------------------------------
+# ============================================================
+# GROQ CLIENT
+# ============================================================
 
-client = Groq(
+groq_client = Groq(
     api_key=config("GROQ_API_KEY")
 )
 
-def rewrite_query(query, conversation_history):
+
+# ============================================================
+# 1. GREETING / CASUAL MESSAGE DETECTION
+# ============================================================
+
+def is_casual_message(query):
+    """
+    Detect very simple casual/greeting messages before
+    conversation rewriting.
+
+    This prevents messages like:
+        hi
+        hello
+        heyy
+        how are you?
+
+    from being sent unnecessarily to RAG.
+    """
+
+    text = query.lower().strip()
+
+    # Remove basic punctuation
+    cleaned = re.sub(r"[!?.,]+$", "", text).strip()
+
+    greetings = {
+        "hi",
+        "hii",
+        "hiii",
+        "hello",
+        "hey",
+        "heyy",
+        "heyyy",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "good night",
+        "namaste",
+    }
+
+    casual_questions = {
+        "how are you",
+        "how are you doing",
+        "what's up",
+        "whats up",
+    }
+
+    thanks_messages = {
+        "thanks",
+        "thank you",
+        "thankyou",
+        "thx",
+    }
+
+    if cleaned in greetings:
+        return True
+
+    if cleaned in casual_questions:
+        return True
+
+    if cleaned in thanks_messages:
+        return True
+
+    return False
+
+
+# ============================================================
+# 2. HANDLE GREETING / CASUAL CONVERSATION
+# ============================================================
+
+def handle_greeting(query):
+
+    text = query.lower().strip()
+
+    if "how are you" in text:
+        return (
+            "I'm doing great! 😊 "
+            "I'm ready to help you with IIIT Kottayam "
+            "admission-related questions."
+        )
+
+    if (
+        "thanks" in text
+        or "thank you" in text
+        or "thankyou" in text
+        or "thx" in text
+    ):
+        return (
+            "You're welcome! 😊 "
+            "Feel free to ask me anything about IIIT Kottayam."
+        )
+
+    return (
+        "Hello! 👋 "
+        "I'm here to help you with IIIT Kottayam "
+        "admission-related questions. "
+        "How can I help you?"
+    )
+
+
+# ============================================================
+# 3. REWRITE FOLLOW-UP QUESTION
+# ============================================================
+
+def rewrite_query(query, conversation_history=None):
     """
     Convert a follow-up question into a standalone question
     using previous conversation context.
@@ -29,7 +138,8 @@ def rewrite_query(query, conversation_history):
         return query
 
     history_text = "\n".join(
-        f"{msg['sender'].capitalize()}: {msg['content']}"
+        f"{msg.get('sender', 'user').capitalize()}: "
+        f"{msg.get('content', '')}"
         for msg in conversation_history
     )
 
@@ -47,57 +157,24 @@ Latest user question:
 {query}
 
 Rules:
-1. If the latest question is already standalone, return it unchanged.
-2. If it is a follow-up, include the missing context from the conversation.
-3. Do not answer the question.
-4. Do not add facts that are not present in the conversation.
+
+1. If the latest question is already standalone,
+   return it unchanged.
+
+2. If it is a follow-up question, include the missing
+   context from the conversation.
+
+3. Do NOT answer the question.
+
+4. Do NOT add facts that are not present in the
+   conversation.
+
 5. Return ONLY the rewritten question.
 
 Standalone question:
 """
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0
-    )
-
-    return response.choices[0].message.content.strip()
-
-
-# --------------------------------------------------
-# 1. CLASSIFY USER INTENT
-# --------------------------------------------------
-
-def classify_intent(query):
-
-    prompt = f"""Classify this IIIT Kottayam admission chatbot question
-into exactly ONE category.
-
-Reply with ONLY the category word.
-
-Categories:
-
-- eligibility_check:
-  The user gives a JEE rank and/or category and asks
-  whether they can get admission or which branch they may get.
-
-- general:
-  Any other admission question such as fees, dates,
-  hostel, documents, general eligibility, programmes,
-  contact information, etc.
-
-Question:
-{query}
-
-Category:"""
-
-    response = client.chat.completions.create(
+    response = groq_client.chat.completions.create(
         model="openai/gpt-oss-20b",
         messages=[
             {
@@ -108,35 +185,131 @@ Category:"""
         temperature=0,
     )
 
-    intent = response.choices[0].message.content.strip().lower()
+    return response.choices[0].message.content.strip()
 
-    # Safety: only allow our known categories
-    if intent not in ["general", "eligibility_check"]:
+
+# ============================================================
+# 4. CLASSIFY USER INTENT
+# ============================================================
+
+def classify_intent(query):
+
+    prompt = f"""
+Classify this user message for an IIIT Kottayam
+admission chatbot.
+
+Reply with ONLY ONE category.
+
+Categories:
+
+1. greeting
+
+   Casual conversation, greetings, or simple social
+   questions.
+
+   Examples:
+   - hi
+   - hello
+   - hey
+   - heyy
+   - good morning
+   - how are you?
+   - thanks
+   - thank you
+
+2. eligibility_check
+
+   The user gives a JEE rank and/or category and asks
+   whether they can get admission or which branch they
+   may get.
+
+   Examples:
+   - My rank is 18000 and I am OBC. Can I get CSE?
+   - I got 12000 rank, can I get admission?
+   - Can I get CSE with rank 5000?
+
+3. general
+
+   Any actual IIIT Kottayam admission or academic
+   question.
+
+   Examples:
+   - What is the B.Tech fee?
+   - What is the admission process?
+   - What documents are required?
+   - What are the hostel fees?
+   - What courses are available?
+   - What is the eligibility criteria?
+
+Important rules:
+
+- Greetings and casual conversation MUST be classified
+  as greeting.
+
+- Admission-related questions MUST be classified as
+  general unless they specifically involve a JEE rank
+  and/or category for admission/branch prediction.
+
+User message:
+{query}
+
+Category:
+"""
+
+    response = groq_client.chat.completions.create(
+        model="openai/gpt-oss-20b",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0,
+    )
+
+    intent = (
+        response.choices[0]
+        .message
+        .content
+        .strip()
+        .lower()
+    )
+
+    # Safety check
+    allowed_intents = [
+        "greeting",
+        "general",
+        "eligibility_check",
+    ]
+
+    if intent not in allowed_intents:
         intent = "general"
 
     return intent
 
 
-# --------------------------------------------------
-# 2. EXTRACT RANK AND CATEGORY
-# --------------------------------------------------
+# ============================================================
+# 5. EXTRACT RANK AND CATEGORY
+# ============================================================
 
 def extract_rank_and_category(query):
 
     query_lower = query.lower()
 
-    # Look for patterns such as:
+    # Examples:
     # rank 18000
     # rank is 18000
     # rank = 18000
+    # rank: 18000
+
     rank_match = re.search(
-        r"rank\s*(?:is|=|:)?\s*(\d+)",
+        r"\brank\s*(?:is|=|:)?\s*(\d+)",
         query_lower
     )
 
-    # Look for admission categories
+    # Admission categories
     category_match = re.search(
-        r"\b(general|obc|sc|st)\b",
+        r"\b(general|obc|sc|st|ews)\b",
         query_lower
     )
 
@@ -152,15 +325,15 @@ def extract_rank_and_category(query):
     return rank, category
 
 
-# --------------------------------------------------
-# 3. RUN ELIGIBILITY TOOL
-# --------------------------------------------------
+# ============================================================
+# 6. RUN ELIGIBILITY TOOL
+# ============================================================
 
 def run_eligibility(query):
 
     rank, category = extract_rank_and_category(query)
 
-    # If information is missing, ask the user for it
+    # Missing required information
     if rank is None or category is None:
 
         return {
@@ -170,10 +343,10 @@ def run_eligibility(query):
                 "For example: My rank is 18000 and I am OBC."
             ),
             "sources": [],
-            "result": None
+            "result": None,
         }
 
-    # Call the eligibility tool
+    # Call eligibility checker
     result = check_eligibility(
         rank,
         category
@@ -183,20 +356,20 @@ def run_eligibility(query):
         "type": "eligibility_check",
         "answer": result["message"],
         "sources": [],
-        "result": result
+        "result": result,
     }
 
 
-# --------------------------------------------------
-# 4. RUN GENERAL RAG
-# --------------------------------------------------
+# ============================================================
+# 7. RUN GENERAL RAG
+# ============================================================
 
 def run_general_rag(query):
 
     # Retrieve relevant documents
     context_docs = retrieve_context(
         query,
-        top_k=2
+        top_k=2,
     )
 
     # Generate grounded answer
@@ -209,51 +382,222 @@ def run_general_rag(query):
         "type": "general",
         "answer": answer,
         "sources": sources,
-        "result": None
+        "result": None,
     }
 
 
-# --------------------------------------------------
-# 5. MAIN AGENT
-# --------------------------------------------------
+# ============================================================
+# 8. MAIN AGENT
+# ============================================================
 
-def run_agent(query, conversation_history=None):
+def run_agent(
+    query,
+    conversation_history=None
+):
+    """
+    Main agent pipeline.
+
+    Flow:
+
+    User query
+          |
+          v
+    Casual message?
+       /       \
+     YES       NO
+      |         |
+   Greeting   Rewrite
+                |
+                v
+             Classify
+          /      |       \
+    greeting eligibility general
+       |          |        |
+       v          v        v
+    Response     Tool     RAG
+    """
 
     if conversation_history is None:
         conversation_history = []
 
-    # Step 1: understand follow-up
+    # --------------------------------------------------------
+    # Step 1: Handle obvious greetings BEFORE rewriting
+    # --------------------------------------------------------
+
+    if is_casual_message(query):
+
+        answer = handle_greeting(query)
+
+        return {
+            "answer": answer,
+            "sources": [],
+            "type": "greeting",
+        }
+
+    # --------------------------------------------------------
+    # Step 2: Rewrite follow-up question
+    # --------------------------------------------------------
+
     standalone_query = rewrite_query(
         query,
         conversation_history
     )
 
-    # Step 2: classify the clarified question
-    intent = classify_intent(standalone_query)
+    # --------------------------------------------------------
+    # Step 3: Classify rewritten query
+    # --------------------------------------------------------
 
-    # Step 3: route
-    if intent == "eligibility":
+    intent = classify_intent(
+        standalone_query
+    )
 
-        answer = handle_eligibility(standalone_query)
+    print("\n========================================")
+    print("AGENT")
+    print("Original query:", query)
+    print("Standalone query:", standalone_query)
+    print("Intent:", intent)
+    print("========================================")
+
+    # --------------------------------------------------------
+    # Step 4: Greeting
+    # --------------------------------------------------------
+
+    if intent == "greeting":
+
+        answer = handle_greeting(
+            standalone_query
+        )
 
         return {
             "answer": answer,
             "sources": [],
-            "type": "eligibility"
+            "type": "greeting",
         }
 
-    # Step 4: normal RAG
-    context_docs = retrieve_context(
+    # --------------------------------------------------------
+    # Step 5: Eligibility
+    # --------------------------------------------------------
+
+    if intent == "eligibility_check":
+
+        result = run_eligibility(
+            standalone_query
+        )
+
+        return {
+            "answer": result["answer"],
+            "sources": result["sources"],
+            "type": result["type"],
+        }
+
+    # --------------------------------------------------------
+    # Step 6: General RAG
+    # --------------------------------------------------------
+
+    result = run_general_rag(
         standalone_query
     )
 
-    answer, sources = generate_answer(
-        standalone_query,
-        context_docs
+    return {
+        "answer": result["answer"],
+        "sources": result["sources"],
+        "type": result["type"],
+    }
+
+
+# ============================================================
+# 9. MULTILINGUAL QUERY PROCESSING
+# ============================================================
+
+def process_multilingual_query(
+    user_message,
+    conversation_history=None
+):
+    """
+    Multilingual processing pipeline.
+
+    1. Detect language
+    2. Translate user query to English
+    3. Run the existing M4/M5 agent
+    4. Translate the final answer back to the user's language
+    5. Return language metadata
+    """
+
+    if conversation_history is None:
+        conversation_history = []
+
+    # --------------------------------------------------------
+    # Step 1: Detect language
+    # --------------------------------------------------------
+
+    language_code = detect_language(
+        user_message
     )
+
+    language_name = LANG_NAMES.get(
+        language_code,
+        "English"
+    )
+
+    print("\n========================================")
+    print("MULTILINGUAL PIPELINE")
+    print("Original:", user_message)
+    print("Detected:", language_code)
+    print("Language:", language_name)
+    print("========================================")
+
+    # --------------------------------------------------------
+    # Step 2: Translate user query to English
+    # --------------------------------------------------------
+
+    if language_code == "en":
+
+        english_query = user_message
+
+    else:
+
+        english_query = translate_text(
+            user_message,
+            language_name,
+            "English"
+        )
+
+    print("Translated query:", english_query)
+
+    # --------------------------------------------------------
+    # Step 3: Process through agent
+    # --------------------------------------------------------
+
+    result = run_agent(
+        english_query,
+        conversation_history
+    )
+
+    answer = result["answer"]
+    sources = result["sources"]
+    answer_type = result["type"]
+
+    # --------------------------------------------------------
+    # Step 4: Translate answer back to user's language
+    # --------------------------------------------------------
+
+    if language_code != "en" and answer:
+
+        answer = translate_text(
+            answer,
+            "English",
+            language_name
+        )
+
+    # --------------------------------------------------------
+    # Step 5: Return final result
+    # --------------------------------------------------------
 
     return {
         "answer": answer,
         "sources": sources,
-        "type": "general"
+        "type": answer_type,
+        "language": language_code,
+        "language_name": language_name,
+        "translated_query": english_query,
     }
