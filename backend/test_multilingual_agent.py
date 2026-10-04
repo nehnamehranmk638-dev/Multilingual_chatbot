@@ -1,3 +1,8 @@
+import sys
+
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 from chatbot.agent import process_multilingual_query
 
 

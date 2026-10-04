@@ -1,4 +1,8 @@
 import re
+import sys
+
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 
 from groq import Groq
 from decouple import config
@@ -594,10 +598,11 @@ def process_multilingual_query(
     # --------------------------------------------------------
 
     return {
+        "original_query": user_message,
         "answer": answer,
         "sources": sources,
         "type": answer_type,
         "language": language_code,
         "language_name": language_name,
         "translated_query": english_query,
-    }
+    }
