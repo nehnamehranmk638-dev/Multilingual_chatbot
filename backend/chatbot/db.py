@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from bson import ObjectId
 from decouple import config
 
 MONGO_URI = config("MONGO_URI", default=None) or config("MONGODB_URI")
@@ -9,3 +10,4 @@ db = client["iiitk_chatbot"]
 
 knowledge_base = db["knowledge_base"]
 messages = db["messages"]
+feedback = db["feedback"]

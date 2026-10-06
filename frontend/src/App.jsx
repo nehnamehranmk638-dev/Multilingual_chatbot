@@ -3,112 +3,442 @@ import Header from './components/Header';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
 import QuickPrompts from './components/QuickPrompts';
+<<<<<<< HEAD
 import CampusMapModal from './components/CampusMapModal';
 import { Globe2, Sparkles, MapPin, Compass } from 'lucide-react';
+=======
+import FeedbackDialog from './components/FeedbackDialog';
+>>>>>>> 085bf62 (admin, feedback)
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export default function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+<<<<<<< HEAD
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 9));
   
+=======
+
+  // Each chat gets its own session ID
+  const [sessionId, setSessionId] = useState(
+    () =>
+      'session-' +
+      Math.random().toString(36).substring(2, 9)
+  );
+
+  const [showGeneralFeedback, setShowGeneralFeedback] =
+    useState(false);
+
+>>>>>>> 085bf62 (admin, feedback)
   const messagesEndRef = useRef(null);
 
+  /*
+   * ---------------------------------------------------------
+   * USER MODE
+   * ---------------------------------------------------------
+   *
+   * The application already asks the user to select
+   * Student Mode or Parent Mode when entering the chatbot.
+   *
+   * We do NOT ask for it again inside the feedback form.
+   *
+   * This attempts to read the existing mode from localStorage.
+   *
+   * If your mode is stored under a different key, change
+   * "userMode" below to the key used by your existing app.
+   */
+
+  const [userMode, setUserMode] = useState(() => {
+    return (
+      localStorage.getItem('userMode') ||
+      localStorage.getItem('user_mode') ||
+      ''
+    );
+  });
+
+
+  /*
+   * ---------------------------------------------------------
+   * Keep userMode updated if another component changes it
+   * ---------------------------------------------------------
+   */
+
+  useEffect(() => {
+    const updateUserMode = () => {
+      const mode =
+        localStorage.getItem('userMode') ||
+        localStorage.getItem('user_mode') ||
+        '';
+
+      setUserMode(mode);
+    };
+
+    updateUserMode();
+
+    window.addEventListener(
+      'storage',
+      updateUserMode
+    );
+
+    return () => {
+      window.removeEventListener(
+        'storage',
+        updateUserMode
+      );
+    };
+  }, []);
+
+
+  /*
+   * ---------------------------------------------------------
+   * Scroll to latest message
+   * ---------------------------------------------------------
+   */
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: 'smooth',
+    });
   };
+
 
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
 
+
+  /*
+   * ---------------------------------------------------------
+   * Start a new chat session
+   * ---------------------------------------------------------
+   */
+
   const handleReset = () => {
-    if (messages.length > 0 && !window.confirm('Start a new chat session?')) {
+    if (
+      messages.length > 0 &&
+      !window.confirm(
+        'Start a new chat session?'
+      )
+    ) {
       return;
     }
+
     setMessages([]);
-    setSessionId('session-' + Math.random().toString(36).substring(2, 9));
+
+    setSessionId(
+      'session-' +
+        Math.random()
+          .toString(36)
+          .substring(2, 9)
+    );
   };
 
-  const handleSendMessage = async (text) => {
-    if (!text.trim() || loading) return;
 
-    const userTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
+  /*
+   * ---------------------------------------------------------
+   * Send chat message
+   * ---------------------------------------------------------
+   */
+
+  const handleSendMessage = async (text) => {
+    if (!text.trim() || loading) {
+      return;
+    }
+
+    const userTime =
+      new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+
+    /*
+     * Add user's message immediately
+     */
+
     const userMessage = {
       sender: 'user',
       content: text,
-      time: userTime
+      time: userTime,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+    ]);
+
     setLoading(true);
 
+
     try {
-      const response = await fetch(`${API_BASE_URL}/chat/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: text,
-          session_id: sessionId,
-        }),
-      });
+
+      /*
+       * Send message to Django backend
+       */
+
+      const response = await fetch(
+        `${API_BASE_URL}/chat/`,
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+
+          body: JSON.stringify({
+            message: text,
+            session_id: sessionId,
+          }),
+        }
+      );
+
 
       if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+        throw new Error(
+          `Server returned ${response.status}`
+        );
       }
 
-      const data = await response.json();
-      const botTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const data =
+        await response.json();
+
+
+      const botTime =
+        new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+
+      /*
+       * -----------------------------------------------------
+       * IMPORTANT FOR M6 FEEDBACK
+       *
+       * Django now returns:
+       *
+       * {
+       *   answer: "...",
+       *   sources: [...],
+       *   message_id: "..."
+       * }
+       *
+       * We store message_id with the bot message.
+       * FeedbackButtons / ChatMessage can later use
+       * this ID to identify exactly which answer was rated.
+       * -----------------------------------------------------
+       */
 
       const botMessage = {
         sender: 'bot',
+
         content: data.answer,
+
         sources: data.sources || [],
-        type: data.type || 'general',
-        language: data.language,
-        language_name: data.language_name,
-        translated_query: data.translated_query,
+
+        type:
+          data.type || 'general',
+
+        language:
+          data.language || 'en',
+
+        language_name:
+          data.language_name || '',
+
+        translated_query:
+          data.translated_query || '',
+
+        /*
+         * THIS IS REQUIRED FOR RESPONSE FEEDBACK
+         */
+        message_id:
+          data.message_id || null,
+
+        /*
+         * Keep session ID with the message
+         */
+        session_id: sessionId,
+
+        /*
+         * Automatically associate the
+         * Student / Parent mode
+         */
+        user_mode: userMode || '',
+
         time: botTime,
       };
 
-      setMessages((prev) => [...prev, botMessage]);
+
+      /*
+       * Add bot response to messages
+       */
+
+      setMessages((prev) => [
+        ...prev,
+        botMessage,
+      ]);
+
     } catch (err) {
-      console.error('Chat error:', err);
-      const botTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      console.error(
+        'Chat error:',
+        err
+      );
+
+
+      const botTime =
+        new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+
+      /*
+       * Error message
+       *
+       * No message_id is attached because this
+       * is not an actual bot response stored
+       * by the backend.
+       */
+
       setMessages((prev) => [
         ...prev,
         {
           sender: 'bot',
-          content: '⚠️ Unable to connect to the backend server. Please make sure the Django server is running on http://127.0.0.1:8000.',
+
+          content:
+            '⚠️ Unable to connect to the backend server. Please make sure the Django server is running on http://127.0.0.1:8000.',
+
+          message_id: null,
+
+          session_id: sessionId,
+
+          user_mode: userMode || '',
+
           time: botTime,
         },
       ]);
+
     } finally {
+
       setLoading(false);
     }
   };
 
+
+  /*
+   * ---------------------------------------------------------
+   * General feedback submission
+   * ---------------------------------------------------------
+   *
+   * FeedbackDialog itself performs the API request.
+   *
+   * Once it succeeds, this callback closes the modal.
+   * ---------------------------------------------------------
+   */
+
+  const handleGeneralFeedbackSubmit = async (
+    data
+  ) => {
+
+    console.log(
+      'General feedback submitted:',
+      data
+    );
+
+    setShowGeneralFeedback(false);
+  };
+
+
+  /*
+   * ---------------------------------------------------------
+   * Determine current language
+   * ---------------------------------------------------------
+   *
+   * Used for general feedback.
+   *
+   * We look for the most recent bot message that
+   * contains a language.
+   * ---------------------------------------------------------
+   */
+
+  const currentLanguage =
+    [...messages]
+      .reverse()
+      .find(
+        (message) =>
+          message.sender === 'bot' &&
+          message.language
+      )?.language || 'en';
+
+
+  /*
+   * ---------------------------------------------------------
+   * RENDER
+   * ---------------------------------------------------------
+   */
+
   return (
     <div className="app-container">
+<<<<<<< HEAD
       {/* Header */}
       <Header 
         onReset={handleReset} 
         onOpenMap={() => setIsMapOpen(true)}
         messageCount={messages.length} 
       />
+=======
+>>>>>>> 085bf62 (admin, feedback)
 
-      {/* Messages area */}
+      {/* =====================================================
+          HEADER
+          ===================================================== */}
+
+      <Header
+        onReset={handleReset}
+
+        messageCount={
+          messages.length
+        }
+
+        onFeedback={() =>
+          setShowGeneralFeedback(true)
+        }
+      />
+
+
+      {/* =====================================================
+          CHAT MESSAGES
+          ===================================================== */}
+
       <div className="chat-messages-container">
+
         {messages.length === 0 ? (
+
+          /*
+           * -------------------------------------------------
+           * WELCOME SCREEN
+           * -------------------------------------------------
+           */
+
           <div className="welcome-card">
-            <div className="welcome-icon">🎓</div>
-            <h2 className="welcome-title">Welcome to IIIT Kottayam</h2>
+
+            <div className="welcome-icon">
+              🎓
+            </div>
+
+
+            <h2 className="welcome-title">
+              Welcome to IIIT Kottayam
+            </h2>
+
+
             <p className="welcome-desc">
+<<<<<<< HEAD
               Your AI-powered Multilingual Admission &amp; Campus Guide. Ask questions regarding B.Tech admissions, seat eligibility, fee structure, classroom locations (e.g. <code>BC304</code>, <code>AA101</code>), or campus spots like Scoops, Milma &amp; Mess.
             </p>
 
@@ -143,34 +473,126 @@ export default function App() {
               <span className="lang-badge">🇮🇳 தமிழ் (Tamil)</span>
               <span className="lang-badge">🇮🇳 తెలుగు (Telugu)</span>
               <span className="lang-badge">🇮🇳 ಕನ್ನಡ (Kannada)</span>
+=======
+              Your AI-powered Multilingual
+              Admission Assistant. Ask
+              questions regarding B.Tech
+              admissions, seat eligibility,
+              fee structure, hostel life,
+              or JoSAA counselling in your
+              native language.
+            </p>
+
+
+            <div className="language-tags-grid">
+
+              <span className="lang-badge">
+                🌐 English
+              </span>
+
+              <span className="lang-badge">
+                🇮🇳 മലയാളം (Malayalam)
+              </span>
+
+              <span className="lang-badge">
+                🇮🇳 हिन्दी (Hindi)
+              </span>
+
+              <span className="lang-badge">
+                🇮🇳 தமிழ் (Tamil)
+              </span>
+
+              <span className="lang-badge">
+                🇮🇳 తెలుగు (Telugu)
+              </span>
+
+              <span className="lang-badge">
+                🇮🇳 ಕನ್ನಡ (Kannada)
+              </span>
+
+>>>>>>> 085bf62 (admin, feedback)
             </div>
+
           </div>
+
         ) : (
-          messages.map((msg, index) => (
-            <ChatMessage key={index} message={msg} />
-          ))
+
+          /*
+           * -------------------------------------------------
+           * CHAT MESSAGE LIST
+           * -------------------------------------------------
+           */
+
+          messages.map(
+            (msg, index) => (
+
+              <ChatMessage
+                key={
+                  msg.message_id ||
+                  `${msg.sender}-${index}`
+                }
+
+                message={msg}
+
+                sessionId={
+                  sessionId
+                }
+
+                /*
+                 * Pass mode to ChatMessage
+                 * so response feedback can
+                 * automatically include it.
+                 */
+                userMode={
+                  userMode
+                }
+
+              />
+
+            )
+          )
+
         )}
 
-        {/* Loading Indicator */}
+
+        {/* =================================================
+            LOADING INDICATOR
+            ================================================= */}
+
         {loading && (
+
           <div className="message-row bot">
-            <div className="msg-avatar">🤖</div>
-            <div className="message-bubble-wrapper">
-              <div className="message-bubble typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
+
+            <div className="msg-avatar">
+              🤖
             </div>
+
+
+            <div className="message-bubble-wrapper">
+
+              <div className="message-bubble typing-indicator">
+
+                <span></span>
+                <span></span>
+                <span></span>
+
+              </div>
+
+            </div>
+
           </div>
+
         )}
+
+
+        {/* Scroll target */}
 
         <div ref={messagesEndRef} />
+
       </div>
 
-      {/* Suggested Quick Prompts */}
-      <QuickPrompts onSelectPrompt={handleSendMessage} />
 
+<<<<<<< HEAD
       {/* Chat Input & Voice Recorder */}
       <ChatInput onSendMessage={handleSendMessage} disabled={loading} />
 
@@ -182,6 +604,76 @@ export default function App() {
           handleSendMessage(query);
         }}
       />
+=======
+      {/* =====================================================
+          SUGGESTED QUICK PROMPTS
+          ===================================================== */}
+
+      <QuickPrompts
+        onSelectPrompt={
+          handleSendMessage
+        }
+      />
+
+
+      {/* =====================================================
+          CHAT INPUT + VOICE
+          ===================================================== */}
+
+      <ChatInput
+        onSendMessage={
+          handleSendMessage
+        }
+
+        disabled={loading}
+      />
+
+
+      {/* =====================================================
+          GENERAL FEEDBACK MODAL
+          ===================================================== */}
+
+      {showGeneralFeedback && (
+
+        <FeedbackDialog
+
+          type="general"
+
+          sessionId={
+            sessionId
+          }
+
+          messageId={null}
+
+          language={
+            currentLanguage
+          }
+
+          /*
+           * Student / Parent mode is
+           * automatically attached.
+           *
+           * It is NOT shown to the user.
+           */
+          userMode={
+            userMode
+          }
+
+          onClose={() =>
+            setShowGeneralFeedback(
+              false
+            )
+          }
+
+          onSubmit={
+            handleGeneralFeedbackSubmit
+          }
+
+        />
+
+      )}
+
+>>>>>>> 085bf62 (admin, feedback)
     </div>
   );
 }

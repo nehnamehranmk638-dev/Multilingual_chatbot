@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIIT Kottayam Chatbot Admin</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1, h2, h3 { margin-top: 0; color: #1a73e8; }
+        .hidden { display: none !important; }
+        
+        /* Login */
+        #login-view { max-width: 400px; margin: 100px auto; text-align: center; }
+        input[type="password"], input[type="text"], textarea, select {
+            width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+        }
+        button { background: #1a73e8; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #1557b0; }
+        button.danger { background: #d93025; }
+        button.danger:hover { background: #b3261e; }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { background: #e8eaed; color: #3c4043; padding: 10px 20px; font-weight: bold; border-radius: 4px 4px 0 0; }
+        .tab-btn.active { background: #1a73e8; color: white; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
+        .actions-col { width: 150px; }
+        
+        /* Modals */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; color: white; }
+        .bg-green { background: #34a853; }
+        .bg-red { background: #ea4335; }
+        .bg-orange { background: #fbbc04; }
+        
+        .error-msg { color: #d93025; margin-bottom: 15px; font-size: 14px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- LOGIN VIEW -->
+        <div id="login-view" class="card">
+            <h2>Admin Login</h2>
+            <div id="login-error" class="error-msg hidden"></div>
+            <input type="password" id="admin-password" placeholder="Enter Admin Password" onkeydown="if(event.key === 'Enter') login()">
+            <button type="button" id="login-btn" onclick="login()">Login</button>
+        </div>
+
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard-view" class="hidden">
+            <div class="flex-between">
+                <h1>Chatbot Admin Dashboard</h1>
+                <button onclick="logout()">Logout</button>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(event, 'kb')">Knowledge Base</button>
+                <button class="tab-btn" onclick="switchTab(event, 'escalations')">Escalations</button>
+                <button class="tab-btn" onclick="switchTab(event, 'feedback')">Feedback</button>
+            </div>
+
+            <!-- KB Tab -->
+            <div id="kb-tab" class="tab-content card">
+                <div class="flex-between">
+                    <h2>Knowledge Base Documents</h2>
+                    <button onclick="openKbModal()">+ Add Document</button>
+                </div>
+                <table id="kb-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Language</th>
+                            <th>Status</th>
+                            <th class="actions-col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- Escalations Tab -->
+            <div id="escalations-tab" class="tab-content card hidden">
+                <h2>Human Escalations</h2>
+                <table id="escalations-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Query</th>
+                            <th>Status</th>
+                            <th class="actions-col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- Feedback Tab -->
+            <div id="feedback-tab" class="tab-content card hidden">
+                <h2>User Feedback</h2>
+                <table id="feedback-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Rating</th>
+                            <th>Comment/Reason</th>
+                            <th>User Details</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="kb-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="kb-modal-title">Add Document</h2>
+            <input type="hidden" id="kb-id">
+            
+            <label>Title</label>
+            <input type="text" id="kb-title" required>
+            
+            <label>Category</label>
+            <input type="text" id="kb-category" placeholder="e.g., Admissions, Hostel">
+            
+            <label>Language</label>
+            <input type="text" id="kb-language" value="en" placeholder="e.g., en, hi">
+            
+            <label>Source URL (optional)</label>
+            <input type="text" id="kb-source">
+            
+            <label>Content</label>
+            <textarea id="kb-content" rows="6" required></textarea>
+            
+            <label>
+                <input type="checkbox" id="kb-verified"> Verified
+            </label>
+            
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <button onclick="saveKbDoc()">Save</button>
+                <button class="danger" onclick="closeModal('kb-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="esc-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Resolve Escalation</h2>
+            <input type="hidden" id="esc-id">
+            
+            <p><strong>Query:</strong> <span id="esc-query-text"></span></p>
+            
+            <label>Admin Response</label>
+            <textarea id="esc-response" rows="4" placeholder="How was this resolved?"></textarea>
+            
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <button onclick="submitEscalation()">Resolve</button>
+                <button class="danger" onclick="closeModal('esc-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api/admin';
+        let adminPass = '';
+
+        async function apiFetch(endpoint, method = 'GET', body = null) {
+            const headers = { 'X-Admin-Password': adminPass };
+            if (body) headers['Content-Type'] = 'application/json';
+            
+            const res = await fetch(API_BASE + endpoint, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : null
+            });
+            
+            if (res.status === 401) throw new Error('Unauthorized');
+            if (!res.ok) {
+                const err = await res.json().catch(()=>({}));
+                throw new Error(err.error || 'Request failed');
+            }
+            return await res.json();
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        async function login() {
+            const pwdInput = document.getElementById('admin-password');
+            const loginBtn = document.getElementById('login-btn');
+            const errEl = document.getElementById('login-error');
+            
+            const pwd = pwdInput.value.trim();
+            if (!pwd) return;
+            
+            adminPass = pwd;
+            
+            // Set loading state
+            if (loginBtn) {
+                loginBtn.disabled = true;
+                loginBtn.innerText = 'Authenticating...';
+            }
+            if (errEl) errEl.classList.add('hidden');
+            
+            try {
+                // Test auth by calling API first
+                currentKbDocs = await apiFetch('/kb/');
+                
+                // Show dashboard upon success
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('dashboard-view').classList.remove('hidden');
+                
+                // Render table
+                renderKbTable(currentKbDocs);
+            } catch (err) {
+                if (err.message === 'Unauthorized') {
+                    errEl.innerText = 'Invalid Password. Please try again.';
+                } else {
+                    errEl.innerText = 'Error: ' + err.message + '. Ensure Django server is running at http://127.0.0.1:8000';
+                }
+                errEl.classList.remove('hidden');
+                adminPass = '';
+            } finally {
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.innerText = 'Login';
+                }
+            }
+        }
+        
+        function logout() {
+            adminPass = '';
+            document.getElementById('admin-password').value = '';
+            document.getElementById('dashboard-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+        }
+
+        function switchTab(evt, tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            
+            if (evt && evt.target) evt.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            
+            if (tabName === 'kb') loadKb();
+            else if (tabName === 'escalations') loadEscalations();
+            else if (tabName === 'feedback') loadFeedback();
+        }
+
+        function formatDate(dt) {
+            if (!dt) return 'N/A';
+            return new Date(dt).toLocaleString();
+        }
+
+        // ================= KNOWLEDGE BASE =================
+        let currentKbDocs = [];
+
+        async function loadKb() {
+            try {
+                currentKbDocs = await apiFetch('/kb/');
+                renderKbTable(currentKbDocs);
+            } catch (err) {
+                console.error('Failed to load KB docs:', err);
+            }
+        }
+
+        function renderKbTable(docs) {
+            const tbody = document.querySelector('#kb-table tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            if (!docs || docs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No documents found.</td></tr>';
+                return;
+            }
+
+            docs.forEach(doc => {
+                const tr = document.createElement('tr');
+                const title = doc.title || 'Untitled';
+                const content = doc.content ? String(doc.content).substring(0, 50) : '';
+                const category = doc.category || '';
+                const language = doc.language || 'en';
+                const verified = !!doc.verified;
+                const id = doc._id || '';
+
+                tr.innerHTML = `
+                    <td><strong>${escapeHtml(title)}</strong><br><small style="color:gray">${escapeHtml(content)}...</small></td>
+                    <td>${escapeHtml(category)}</td>
+                    <td>${escapeHtml(language)}</td>
+                    <td><span class="badge ${verified ? 'bg-green' : 'bg-red'}">${verified ? 'Verified' : 'Unverified'}</span></td>
+                    <td>
+                        <button onclick="editKb('${id}')" style="padding:5px; font-size:12px;">Edit</button>
+                        <button class="danger" onclick="deleteKb('${id}')" style="padding:5px; font-size:12px;">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openKbModal(docId = null) {
+            document.getElementById('kb-id').value = docId || '';
+            document.getElementById('kb-modal-title').innerText = docId ? 'Edit Document' : 'Add Document';
+            
+            if (docId) {
+                const doc = currentKbDocs.find(d => d._id === docId);
+                document.getElementById('kb-title').value = doc.title || '';
+                document.getElementById('kb-category').value = doc.category || '';
+                document.getElementById('kb-language').value = doc.language || 'en';
+                document.getElementById('kb-source').value = doc.source || '';
+                document.getElementById('kb-content').value = doc.content || '';
+                document.getElementById('kb-verified').checked = !!doc.verified;
+            } else {
+                document.getElementById('kb-title').value = '';
+                document.getElementById('kb-category').value = '';
+                document.getElementById('kb-language').value = 'en';
+                document.getElementById('kb-source').value = '';
+                document.getElementById('kb-content').value = '';
+                document.getElementById('kb-verified').checked = false;
+            }
+            document.getElementById('kb-modal').classList.remove('hidden');
+        }
+
+        async function saveKbDoc() {
+            const id = document.getElementById('kb-id').value;
+            const data = {
+                title: document.getElementById('kb-title').value,
+                category: document.getElementById('kb-category').value,
+                language: document.getElementById('kb-language').value,
+                source: document.getElementById('kb-source').value,
+                content: document.getElementById('kb-content').value,
+                verified: document.getElementById('kb-verified').checked
+            };
+            
+            try {
+                if (id) {
+                    await apiFetch(`/kb/${id}/`, 'PUT', data);
+                } else {
+                    await apiFetch('/kb/create/', 'POST', data);
+                }
+                closeModal('kb-modal');
+                loadKb();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        async function deleteKb(id) {
+            if (!confirm('Are you sure you want to delete this document?')) return;
+            try {
+                await apiFetch(`/kb/${id}/delete/`, 'DELETE');
+                loadKb();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // ================= ESCALATIONS =================
+        let currentEscalations = [];
+        
+        async function loadEscalations() {
+            currentEscalations = await apiFetch('/escalations/');
+            const tbody = document.querySelector('#escalations-table tbody');
+            tbody.innerHTML = '';
+            
+            if (currentEscalations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">No escalations found.</td></tr>';
+                return;
+            }
+
+            currentEscalations.forEach(esc => {
+                const tr = document.createElement('tr');
+                const isResolved = esc.status === 'resolved';
+                
+                tr.innerHTML = `
+                    <td>${formatDate(esc.timestamp)}</td>
+                    <td><strong>${esc.query}</strong><br><small style="color:gray">${esc.response ? 'Response: ' + esc.response : ''}</small></td>
+                    <td><span class="badge ${isResolved ? 'bg-green' : 'bg-orange'}">${isResolved ? 'Resolved' : 'Pending'}</span></td>
+                    <td>
+                        ${!isResolved ? \`<button onclick="openEscModal('${esc._id}')" style="padding:5px; font-size:12px;">Resolve</button>\` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function openEscModal(id) {
+            const esc = currentEscalations.find(e => e._id === id);
+            document.getElementById('esc-id').value = id;
+            document.getElementById('esc-query-text').innerText = esc.query;
+            document.getElementById('esc-response').value = '';
+            document.getElementById('esc-modal').classList.remove('hidden');
+        }
+        
+        async function submitEscalation() {
+            const id = document.getElementById('esc-id').value;
+            const response = document.getElementById('esc-response').value;
+            
+            try {
+                await apiFetch(`/escalations/${id}/resolve/`, 'POST', { response });
+                closeModal('esc-modal');
+                loadEscalations();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // ================= FEEDBACK =================
+        async function loadFeedback() {
+            const feedbacks = await apiFetch('/feedback/');
+            const tbody = document.querySelector('#feedback-table tbody');
+            tbody.innerHTML = '';
+            
+            if (feedbacks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No feedback yet.</td></tr>';
+                return;
+            }
+
+            feedbacks.forEach(fb => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${formatDate(fb.timestamp)}</td>
+                    <td><span class="badge ${fb.feedback_type === 'general' ? 'bg-orange' : 'bg-green'}">${fb.feedback_type}</span></td>
+                    <td>${fb.rating || 'N/A'}</td>
+                    <td>
+                        ${fb.reason ? \`<strong>${fb.reason}</strong><br>\` : ''}
+                        ${fb.comment || ''}
+                    </td>
+                    <td>
+                        <small>
+                        ${fb.name ? 'Name: ' + fb.name + '<br>' : ''}
+                        ${fb.email ? 'Email: ' + fb.email + '<br>' : ''}
+                        Lang: ${fb.language || 'en'}
+                        </small>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>

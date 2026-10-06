@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, BookOpen, ShieldCheck, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-react';
+import FeedbackDialog from './FeedbackDialog';
 
-export default function ChatMessage({ message }) {
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+export default function ChatMessage({ message, sessionId }) {
   const isBot = message.sender === 'bot';
   const [speaking, setSpeaking] = useState(false);
+
+  // ── Response-level feedback state ──────────────────────────
+  const [feedbackGiven,    setFeedbackGiven]    = useState(null);   // 'helpful' | 'not_helpful'
+  const [showDialog,       setShowDialog]       = useState(null);   // 'response_helpful' | 'response_not_helpful'
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   const handleSpeak = () => {
     if (!('speechSynthesis' in window)) {
@@ -36,12 +44,36 @@ export default function ChatMessage({ message }) {
       utterance.lang = 'en-US';
     }
 
-    utterance.onend = () => setSpeaking(false);
+    utterance.onend  = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
 
     setSpeaking(true);
     window.speechSynthesis.speak(utterance);
   };
+
+  // ── Thumbs click handlers ────────────────────────────────────
+  const handleThumbUp = () => {
+    if (feedbackGiven) return;
+    setShowDialog('response_helpful');
+  };
+
+  const handleThumbDown = () => {
+    if (feedbackGiven) return;
+    setShowDialog('response_not_helpful');
+  };
+
+  // ── Dialog submit ────────────────────────────────────────────
+  const handleFeedbackSubmit = (data) => {
+    setFeedbackGiven(data.rating);   // 'helpful' | 'not_helpful'
+    setFeedbackSubmitted(true);
+    setShowDialog(null);
+  };
+
+  const handleDialogClose = () => {
+    setShowDialog(null);
+  };
+
+  // ────────────────────────────────────────────────────────────
 
   return (
     <div className={`message-row ${isBot ? 'bot' : 'user'}`}>
@@ -90,7 +122,7 @@ export default function ChatMessage({ message }) {
           )}
 
           {isBot && (
-            <button 
+            <button
               className={`speech-tts-btn ${speaking ? 'speaking' : ''}`}
               onClick={handleSpeak}
               title={speaking ? 'Stop speaking' : 'Read message aloud'}
@@ -100,7 +132,51 @@ export default function ChatMessage({ message }) {
             </button>
           )}
         </div>
+
+        {/* ── Response Feedback Thumbs (bot only) ── */}
+        {isBot && (
+          <div className="feedback-thumbs">
+            {feedbackSubmitted ? (
+              <span className="feedback-thanks">✓ Thanks for your feedback!</span>
+            ) : (
+              <>
+                <button
+                  className={`thumb-btn ${feedbackGiven === 'helpful' ? 'selected-helpful' : ''}`}
+                  onClick={handleThumbUp}
+                  disabled={!!feedbackGiven}
+                  title="Helpful"
+                  aria-label="Mark as helpful"
+                  type="button"
+                >
+                  <ThumbsUp size={13} /> Helpful
+                </button>
+                <button
+                  className={`thumb-btn ${feedbackGiven === 'not_helpful' ? 'selected-not-helpful' : ''}`}
+                  onClick={handleThumbDown}
+                  disabled={!!feedbackGiven}
+                  title="Not helpful"
+                  aria-label="Mark as not helpful"
+                  type="button"
+                >
+                  <ThumbsDown size={13} /> Not helpful
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Feedback Dialog ── */}
+      {showDialog && (
+        <FeedbackDialog
+          type={showDialog}
+          sessionId={sessionId}
+          messageId={message.message_id || null}
+          language={message.language || 'en'}
+          onClose={handleDialogClose}
+          onSubmit={handleFeedbackSubmit}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,13 @@
 import React from 'react';
+<<<<<<< HEAD
 import { RotateCcw, MapPin, Compass } from 'lucide-react';
 
 export default function Header({ onReset, onOpenMap, messageCount }) {
+=======
+import { RotateCcw, MessageSquare } from 'lucide-react';
+
+export default function Header({ onReset, messageCount, onFeedback }) {
+>>>>>>> 085bf62 (admin, feedback)
   return (
     <header className="chat-header">
       <div className="header-brand">
@@ -21,6 +27,7 @@ export default function Header({ onReset, onOpenMap, messageCount }) {
       </div>
 
       <div className="header-actions">
+<<<<<<< HEAD
         {/* Campus Map & Room Navigator Button */}
         <button 
           className="campus-map-nav-btn"
@@ -36,6 +43,22 @@ export default function Header({ onReset, onOpenMap, messageCount }) {
         <button 
           className="btn-icon" 
           onClick={onReset} 
+=======
+        {/* General Feedback button */}
+        <button
+          className="btn-icon"
+          onClick={onFeedback}
+          title="Give Feedback"
+          aria-label="Give feedback"
+        >
+          <MessageSquare size={17} />
+        </button>
+
+        {/* New chat / reset button */}
+        <button
+          className="btn-icon"
+          onClick={onReset}
+>>>>>>> 085bf62 (admin, feedback)
           title="Start New Conversation"
           aria-label="New chat"
         >

@@ -1,10 +1,14 @@
 from sentence_transformers import SentenceTransformer
 from groq import Groq
 from decouple import config
+
 from .db import (
     messages as messages_collection,
     knowledge_base,
 )
+
+from .escalation import log_escalation
+
 import re
 
 
@@ -17,6 +21,7 @@ import re
 # when the documents were inserted into MongoDB.
 #
 # Your current ingestion/retrieval setup uses this model.
+
 embedding_model = SentenceTransformer(
     "all-MiniLM-L6-v2"
 )
@@ -54,7 +59,10 @@ def get_recent_history(session_id, limit=6):
 # Rewrite follow-up question
 # --------------------------------------------------
 
-def rewrite_query_with_context(query, history):
+def rewrite_query_with_context(
+    query,
+    history
+):
 
     if not history:
         return query
@@ -93,7 +101,13 @@ Standalone question:
         temperature=0,
     )
 
-    return response.choices[0].message.content.strip()
+    return (
+        response
+        .choices[0]
+        .message
+        .content
+        .strip()
+    )
 
 
 # --------------------------------------------------
@@ -111,10 +125,12 @@ def retrieve_context(
 
     # Convert query into the same embedding space
     # used by the knowledge base.
+
     query_vector = embedding_model.encode(
         query
     ).tolist()
 
+<<<<<<< HEAD
     docs = []
 
     try:
@@ -141,6 +157,32 @@ def retrieve_context(
                         "score": {
                             "$meta": "vectorSearchScore"
                         }
+=======
+
+    results = knowledge_base.aggregate(
+        [
+            {
+                "$vectorSearch": {
+                    "index": "vector_index",
+                    "path": "embedding",
+                    "queryVector": query_vector,
+                    "numCandidates": 50,
+                    "limit": top_k
+                }
+            },
+
+            {
+                "$project": {
+                    "_id": 0,
+                    "title": 1,
+                    "content": 1,
+                    "source": 1,
+                    "category": 1,
+                    "language": 1,
+                    "verified": 1,
+                    "score": {
+                        "$meta": "vectorSearchScore"
+>>>>>>> 085bf62 (admin, feedback)
                     }
                 }
             ]
@@ -149,6 +191,7 @@ def retrieve_context(
     except Exception as e:
         print(f"Atlas Vector Search unavailable ({e}), using in-memory similarity fallback.")
 
+<<<<<<< HEAD
     # Fallback if Atlas index is not ready or returns 0 results
     if not docs:
         all_docs = list(knowledge_base.find({"verified": True}, {"_id": 0}))
@@ -166,32 +209,74 @@ def retrieve_context(
                 doc_copy = {k: v for k, v in d.items() if k != "embedding"}
                 doc_copy["score"] = sim
                 docs.append(doc_copy)
+=======
 
-    # Debugging information during development.
+    docs = list(results)
+>>>>>>> 085bf62 (admin, feedback)
+
+
+    # --------------------------------------------------
+    # Debugging information
+    # --------------------------------------------------
+
     print("\nRetrieved documents:")
     print("====================")
 
-    for i, doc in enumerate(docs, start=1):
-        print(f"\nDocument {i}")
-        print("Title:", doc.get("title"))
-        print("Score:", doc.get("score"))
-        print("Verified:", doc.get("verified"))
+    for i, doc in enumerate(
+        docs,
+        start=1
+    ):
 
-    # Keep only sufficiently relevant documents.
+        print(
+            f"\nDocument {i}"
+        )
+
+        print(
+            "Title:",
+            doc.get("title")
+        )
+
+        print(
+            "Score:",
+            doc.get("score")
+        )
+
+        print(
+            "Verified:",
+            doc.get("verified")
+        )
+
+
+    # --------------------------------------------------
+    # Relevance filtering
+    # --------------------------------------------------
+
     filtered_docs = [
         doc
         for doc in docs
         if doc.get("score", 0) >= min_score
     ]
 
-    print("\nDocuments after relevance filtering:")
-    print("=====================================")
 
-    for i, doc in enumerate(filtered_docs, start=1):
+    print(
+        "\nDocuments after relevance filtering:"
+    )
+
+    print(
+        "====================================="
+    )
+
+
+    for i, doc in enumerate(
+        filtered_docs,
+        start=1
+    ):
+
         print(
             f"{i}. {doc.get('title')} "
             f"(score={doc.get('score')})"
         )
+
 
     return filtered_docs
 
@@ -206,33 +291,41 @@ def contains_unverified_url(
     context_docs
 ):
 
-    # URLs appearing in the generated answer
+    # URLs appearing in generated answer
+
     answer_urls = re.findall(
         r'https?://[^\s]+',
         answer
     )
 
-    # URLs appearing in the trusted context
+
+    # URLs appearing in trusted context
+
     context_text = " ".join(
         doc.get("content", "")
         for doc in context_docs
     )
+
 
     context_urls = re.findall(
         r'https?://[^\s]+',
         context_text
     )
 
-    # Normalize trailing punctuation.
+
+    # Normalize trailing punctuation
+
     answer_urls = {
         url.rstrip(".,;:!?)]}")
         for url in answer_urls
     }
 
+
     context_urls = {
         url.rstrip(".,;:!?)]}")
         for url in context_urls
     }
+
 
     return any(
         url not in context_urls
@@ -246,7 +339,8 @@ def contains_unverified_url(
 
 def generate_answer(
     query,
-    context_docs
+    context_docs,
+    session_id=None
 ):
 
     # --------------------------------------------------
@@ -254,6 +348,14 @@ def generate_answer(
     # --------------------------------------------------
 
     if not context_docs:
+
+        # Create human escalation record
+        if session_id:
+            log_escalation(
+                query=query,
+                session_id=session_id
+            )
+
 
         return (
             "I couldn't find a verified answer to that "
@@ -278,6 +380,14 @@ def generate_answer(
     # --------------------------------------------------
 
     if not verified_docs:
+
+        # Create human escalation record
+        if session_id:
+            log_escalation(
+                query=query,
+                session_id=session_id
+            )
+
 
         return (
             "I couldn't find a verified answer to that "
@@ -352,18 +462,23 @@ Answer:
 
     response = groq_client.chat.completions.create(
         model="openai/gpt-oss-20b",
+
         messages=[
             {
                 "role": "user",
                 "content": prompt
             }
         ],
+
         reasoning_effort="low",
+
         temperature=0.2,
     )
 
+
     answer = (
-        response.choices[0]
+        response
+        .choices[0]
         .message
         .content
         .strip()
@@ -383,6 +498,15 @@ Answer:
             "\nWARNING: Generated answer contained "
             "an unverified URL."
         )
+
+
+        # Create human escalation record
+        if session_id:
+            log_escalation(
+                query=query,
+                session_id=session_id
+            )
+
 
         return (
             "I couldn't provide a verified answer to "
@@ -404,5 +528,9 @@ Answer:
         if doc.get("source")
     ]
 
+
+    # --------------------------------------------------
+    # Successful response
+    # --------------------------------------------------
 
     return answer, sources
