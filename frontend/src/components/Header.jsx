@@ -1,7 +1,7 @@
 import React from 'react';
-import { RotateCcw, Sparkles, MessageSquare, Globe } from 'lucide-react';
+import { RotateCcw, MapPin, Compass } from 'lucide-react';
 
-export default function Header({ onReset, messageCount }) {
+export default function Header({ onReset, onOpenMap, messageCount }) {
   return (
     <header className="chat-header">
       <div className="header-brand">
@@ -16,11 +16,23 @@ export default function Header({ onReset, messageCount }) {
               AI Online
             </span>
           </h1>
-          <p>Official Multilingual Admission Assistant</p>
+          <p>Official Multilingual Admission & Campus Guide</p>
         </div>
       </div>
 
       <div className="header-actions">
+        {/* Campus Map & Room Navigator Button */}
+        <button 
+          className="campus-map-nav-btn"
+          onClick={onOpenMap}
+          title="Open IIITK Campus Map & Room Locator"
+          aria-label="Campus Map"
+        >
+          <Compass size={16} className="text-blue-400 animate-spin-slow" />
+          <span>Campus Map &amp; Rooms</span>
+        </button>
+
+        {/* Reset Chat Button */}
         <button 
           className="btn-icon" 
           onClick={onReset} 

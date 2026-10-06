@@ -365,8 +365,92 @@ def run_eligibility(query):
 
 
 # ============================================================
-# 7. RUN GENERAL RAG
+# 7. CAMPUS ROOM & NAVIGATION RESOLVER
 # ============================================================
+
+def resolve_room_location(query):
+    """
+    Directly validates and resolves IIIT Kottayam room codes:
+    - Old Academic: 'A' prefix. Floor letter and digit must match (A=1, B=2, C=3, D=4).
+      AA1xx -> Ground Floor
+      AB2xx -> First Floor
+      AC3xx -> Second Floor
+      AD4xx -> Third Floor
+    - New Academic: 'B' prefix. Floor letter and digit must match (A=1, B=2, C=3, D=4).
+      BA1xx -> Basement Floor
+      BB2xx -> Ground Floor
+      BC3xx -> First Floor
+      BD4xx -> Second Floor
+    """
+    query_upper = query.upper()
+
+    # Match room patterns like AA101, BA101, BA301, BC304, AA126
+    room_match = re.search(r'\b([AB])([A-D])(\d{2,4})\b', query_upper)
+    
+    if room_match:
+        building_code = room_match.group(1) # 'A' or 'B'
+        floor_letter = room_match.group(2)  # 'A', 'B', 'C', 'D'
+        digits = room_match.group(3)        # '101', '301', etc.
+        floor_digit = digits[0]             # '1', '2', '3', '4'
+        full_code = f"{building_code}{floor_letter}{digits}"
+
+        letter_to_digit = {
+            'A': '1',
+            'B': '2',
+            'C': '3',
+            'D': '4'
+        }
+
+        # -------------------------------------------------------------
+        # STRICT VALIDATION: Check if letter and digit match
+        # -------------------------------------------------------------
+        expected_digit = letter_to_digit.get(floor_letter)
+        if floor_digit != expected_digit:
+            return {
+                "answer": f"**{full_code}** is an invalid room number because the floor letter ('{floor_letter}') and floor number ('{floor_digit}') do not match.",
+                "sources": ["IIIT Kottayam Official Campus Map & Navigation Guide"],
+                "type": "campus_navigation"
+            }
+
+        # -------------------------------------------------------------
+        # VALID ROOMS
+        # -------------------------------------------------------------
+        if building_code == 'A':
+            floors_old = {
+                'A': 'Ground Floor',
+                'B': 'First Floor',
+                'C': 'Second Floor',
+                'D': 'Third Floor'
+            }
+            floor_name = floors_old.get(floor_letter, 'Ground Floor')
+            return {
+                "answer": f"Room **{full_code}** is located on the **{floor_name}** of the **Old Academic Block (Block A)**.",
+                "sources": ["IIIT Kottayam Official Campus Map & Navigation Guide"],
+                "type": "campus_navigation"
+            }
+
+        elif building_code == 'B':
+            floors_new = {
+                'A': 'Basement Floor',
+                'B': 'Ground Floor',
+                'C': 'First Floor',
+                'D': 'Second Floor'
+            }
+            floor_name = floors_new.get(floor_letter, 'Basement Floor')
+            return {
+                "answer": f"Room **{full_code}** is located on the **{floor_name}** of the **New Academic Block (Block B)**.",
+                "sources": ["IIIT Kottayam Official Campus Map & Navigation Guide"],
+                "type": "campus_navigation"
+            }
+
+    return None
+
+
+
+# ============================================================
+# 8. RUN GENERAL RAG
+# ============================================================
+
 
 def run_general_rag(query):
 
@@ -495,7 +579,15 @@ def run_agent(
         }
 
     # --------------------------------------------------------
-    # Step 6: General RAG
+    # Step 6: Campus Room & Navigation Check
+    # --------------------------------------------------------
+
+    room_nav_result = resolve_room_location(standalone_query)
+    if room_nav_result:
+        return room_nav_result
+
+    # --------------------------------------------------------
+    # Step 7: General RAG
     # --------------------------------------------------------
 
     result = run_general_rag(
@@ -507,6 +599,7 @@ def run_agent(
         "sources": result["sources"],
         "type": result["type"],
     }
+
 
 
 # ============================================================

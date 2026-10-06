@@ -3,13 +3,15 @@ import Header from './components/Header';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
 import QuickPrompts from './components/QuickPrompts';
-import { Globe2, Sparkles, BookCheck } from 'lucide-react';
+import CampusMapModal from './components/CampusMapModal';
+import { Globe2, Sparkles, MapPin, Compass } from 'lucide-react';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export default function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
   const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 9));
   
   const messagesEndRef = useRef(null);
@@ -94,7 +96,11 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Header */}
-      <Header onReset={handleReset} messageCount={messages.length} />
+      <Header 
+        onReset={handleReset} 
+        onOpenMap={() => setIsMapOpen(true)}
+        messageCount={messages.length} 
+      />
 
       {/* Messages area */}
       <div className="chat-messages-container">
@@ -103,10 +109,34 @@ export default function App() {
             <div className="welcome-icon">🎓</div>
             <h2 className="welcome-title">Welcome to IIIT Kottayam</h2>
             <p className="welcome-desc">
-              Your AI-powered Multilingual Admission Assistant. Ask questions regarding B.Tech admissions, seat eligibility, fee structure, hostel life, or JoSAA counselling in your native language.
+              Your AI-powered Multilingual Admission &amp; Campus Guide. Ask questions regarding B.Tech admissions, seat eligibility, fee structure, classroom locations (e.g. <code>BC304</code>, <code>AA101</code>), or campus spots like Scoops, Milma &amp; Mess.
             </p>
 
-            <div className="language-tags-grid">
+            {/* Quick Interactive Map Launcher Banner */}
+            <div 
+              className="welcome-map-banner"
+              onClick={() => setIsMapOpen(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
+                  <Compass size={24} />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    Explore IIITK Campus Map &amp; Room Navigator
+                    <span className="text-[10px] bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full border border-blue-400/40">NEW</span>
+                  </h4>
+                  <p className="text-xs text-slate-300">
+                    Find Admin Block, Old Academic (AA/AC), New Academic (BA/BC), Scoops, Milma &amp; Mess
+                  </p>
+                </div>
+              </div>
+              <button className="open-map-pill">
+                Open Map 📍
+              </button>
+            </div>
+
+            <div className="language-tags-grid mt-4">
               <span className="lang-badge">🌐 English</span>
               <span className="lang-badge">🇮🇳 മലയാളം (Malayalam)</span>
               <span className="lang-badge">🇮🇳 हिन्दी (Hindi)</span>
@@ -143,6 +173,15 @@ export default function App() {
 
       {/* Chat Input & Voice Recorder */}
       <ChatInput onSendMessage={handleSendMessage} disabled={loading} />
+
+      {/* Campus Map & Room Navigator Modal */}
+      <CampusMapModal 
+        isOpen={isMapOpen} 
+        onClose={() => setIsMapOpen(false)}
+        onAskAboutPlace={(query) => {
+          handleSendMessage(query);
+        }}
+      />
     </div>
   );
 }
