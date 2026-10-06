@@ -130,7 +130,6 @@ def retrieve_context(
         query
     ).tolist()
 
-<<<<<<< HEAD
     docs = []
 
     try:
@@ -157,32 +156,6 @@ def retrieve_context(
                         "score": {
                             "$meta": "vectorSearchScore"
                         }
-=======
-
-    results = knowledge_base.aggregate(
-        [
-            {
-                "$vectorSearch": {
-                    "index": "vector_index",
-                    "path": "embedding",
-                    "queryVector": query_vector,
-                    "numCandidates": 50,
-                    "limit": top_k
-                }
-            },
-
-            {
-                "$project": {
-                    "_id": 0,
-                    "title": 1,
-                    "content": 1,
-                    "source": 1,
-                    "category": 1,
-                    "language": 1,
-                    "verified": 1,
-                    "score": {
-                        "$meta": "vectorSearchScore"
->>>>>>> 085bf62 (admin, feedback)
                     }
                 }
             ]
@@ -191,7 +164,6 @@ def retrieve_context(
     except Exception as e:
         print(f"Atlas Vector Search unavailable ({e}), using in-memory similarity fallback.")
 
-<<<<<<< HEAD
     # Fallback if Atlas index is not ready or returns 0 results
     if not docs:
         all_docs = list(knowledge_base.find({"verified": True}, {"_id": 0}))
@@ -209,10 +181,6 @@ def retrieve_context(
                 doc_copy = {k: v for k, v in d.items() if k != "embedding"}
                 doc_copy["score"] = sim
                 docs.append(doc_copy)
-=======
-
-    docs = list(results)
->>>>>>> 085bf62 (admin, feedback)
 
 
     # --------------------------------------------------

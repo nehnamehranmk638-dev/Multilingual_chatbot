@@ -3,35 +3,17 @@ import Header from './components/Header';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
 import QuickPrompts from './components/QuickPrompts';
-<<<<<<< HEAD
 import CampusMapModal from './components/CampusMapModal';
 import { Globe2, Sparkles, MapPin, Compass } from 'lucide-react';
-=======
-import FeedbackDialog from './components/FeedbackDialog';
->>>>>>> 085bf62 (admin, feedback)
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export default function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-<<<<<<< HEAD
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 9));
   
-=======
-
-  // Each chat gets its own session ID
-  const [sessionId, setSessionId] = useState(
-    () =>
-      'session-' +
-      Math.random().toString(36).substring(2, 9)
-  );
-
-  const [showGeneralFeedback, setShowGeneralFeedback] =
-    useState(false);
-
->>>>>>> 085bf62 (admin, feedback)
   const messagesEndRef = useRef(null);
 
   /*
@@ -384,15 +366,12 @@ export default function App() {
 
   return (
     <div className="app-container">
-<<<<<<< HEAD
       {/* Header */}
       <Header 
         onReset={handleReset} 
         onOpenMap={() => setIsMapOpen(true)}
         messageCount={messages.length} 
       />
-=======
->>>>>>> 085bf62 (admin, feedback)
 
       {/* =====================================================
           HEADER
@@ -438,7 +417,6 @@ export default function App() {
 
 
             <p className="welcome-desc">
-<<<<<<< HEAD
               Your AI-powered Multilingual Admission &amp; Campus Guide. Ask questions regarding B.Tech admissions, seat eligibility, fee structure, classroom locations (e.g. <code>BC304</code>, <code>AA101</code>), or campus spots like Scoops, Milma &amp; Mess.
             </p>
 
@@ -473,44 +451,6 @@ export default function App() {
               <span className="lang-badge">🇮🇳 தமிழ் (Tamil)</span>
               <span className="lang-badge">🇮🇳 తెలుగు (Telugu)</span>
               <span className="lang-badge">🇮🇳 ಕನ್ನಡ (Kannada)</span>
-=======
-              Your AI-powered Multilingual
-              Admission Assistant. Ask
-              questions regarding B.Tech
-              admissions, seat eligibility,
-              fee structure, hostel life,
-              or JoSAA counselling in your
-              native language.
-            </p>
-
-
-            <div className="language-tags-grid">
-
-              <span className="lang-badge">
-                🌐 English
-              </span>
-
-              <span className="lang-badge">
-                🇮🇳 മലയാളം (Malayalam)
-              </span>
-
-              <span className="lang-badge">
-                🇮🇳 हिन्दी (Hindi)
-              </span>
-
-              <span className="lang-badge">
-                🇮🇳 தமிழ் (Tamil)
-              </span>
-
-              <span className="lang-badge">
-                🇮🇳 తెలుగు (Telugu)
-              </span>
-
-              <span className="lang-badge">
-                🇮🇳 ಕನ್ನಡ (Kannada)
-              </span>
-
->>>>>>> 085bf62 (admin, feedback)
             </div>
 
           </div>
@@ -592,7 +532,6 @@ export default function App() {
       </div>
 
 
-<<<<<<< HEAD
       {/* Chat Input & Voice Recorder */}
       <ChatInput onSendMessage={handleSendMessage} disabled={loading} />
 
@@ -604,76 +543,6 @@ export default function App() {
           handleSendMessage(query);
         }}
       />
-=======
-      {/* =====================================================
-          SUGGESTED QUICK PROMPTS
-          ===================================================== */}
-
-      <QuickPrompts
-        onSelectPrompt={
-          handleSendMessage
-        }
-      />
-
-
-      {/* =====================================================
-          CHAT INPUT + VOICE
-          ===================================================== */}
-
-      <ChatInput
-        onSendMessage={
-          handleSendMessage
-        }
-
-        disabled={loading}
-      />
-
-
-      {/* =====================================================
-          GENERAL FEEDBACK MODAL
-          ===================================================== */}
-
-      {showGeneralFeedback && (
-
-        <FeedbackDialog
-
-          type="general"
-
-          sessionId={
-            sessionId
-          }
-
-          messageId={null}
-
-          language={
-            currentLanguage
-          }
-
-          /*
-           * Student / Parent mode is
-           * automatically attached.
-           *
-           * It is NOT shown to the user.
-           */
-          userMode={
-            userMode
-          }
-
-          onClose={() =>
-            setShowGeneralFeedback(
-              false
-            )
-          }
-
-          onSubmit={
-            handleGeneralFeedbackSubmit
-          }
-
-        />
-
-      )}
-
->>>>>>> 085bf62 (admin, feedback)
     </div>
   );
 }
