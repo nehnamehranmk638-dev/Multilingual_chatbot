@@ -400,7 +400,7 @@
                     <td><strong>${esc.query}</strong><br><small style="color:gray">${esc.response ? 'Response: ' + esc.response : ''}</small></td>
                     <td><span class="badge ${isResolved ? 'bg-green' : 'bg-orange'}">${isResolved ? 'Resolved' : 'Pending'}</span></td>
                     <td>
-                        ${!isResolved ? \`<button onclick="openEscModal('${esc._id}')" style="padding:5px; font-size:12px;">Resolve</button>\` : ''}
+                        ${!isResolved ? `<button onclick="openEscModal('${esc._id}')" style="padding:5px; font-size:12px;">Resolve</button>` : ''}
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -446,7 +446,7 @@
                     <td><span class="badge ${fb.feedback_type === 'general' ? 'bg-orange' : 'bg-green'}">${fb.feedback_type}</span></td>
                     <td>${fb.rating || 'N/A'}</td>
                     <td>
-                        ${fb.reason ? \`<strong>${fb.reason}</strong><br>\` : ''}
+                        ${fb.reason ? `<strong>${fb.reason}</strong><br>` : ''}
                         ${fb.comment || ''}
                     </td>
                     <td>
