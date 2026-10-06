@@ -102,9 +102,12 @@ Standalone question:
 
 def retrieve_context(
     query,
-    top_k=2,
-    min_score=0.65
+    top_k=3,
+    min_score=0.25
 ):
+
+
+
 
     # Convert query into the same embedding space
     # used by the knowledge base.
@@ -112,35 +115,57 @@ def retrieve_context(
         query
     ).tolist()
 
-    results = knowledge_base.aggregate(
-        [
-            {
-                "$vectorSearch": {
-                    "index": "vector_index",
-                    "path": "embedding",
-                    "queryVector": query_vector,
-                    "numCandidates": 50,
-                    "limit": top_k
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "title": 1,
-                    "content": 1,
-                    "source": 1,
-                    "category": 1,
-                    "language": 1,
-                    "verified": 1,
-                    "score": {
-                        "$meta": "vectorSearchScore"
+    docs = []
+
+    try:
+        results = knowledge_base.aggregate(
+            [
+                {
+                    "$vectorSearch": {
+                        "index": "vector_index",
+                        "path": "embedding",
+                        "queryVector": query_vector,
+                        "numCandidates": 50,
+                        "limit": top_k
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": 0,
+                        "title": 1,
+                        "content": 1,
+                        "source": 1,
+                        "category": 1,
+                        "language": 1,
+                        "verified": 1,
+                        "score": {
+                            "$meta": "vectorSearchScore"
+                        }
                     }
                 }
-            }
-        ]
-    )
+            ]
+        )
+        docs = list(results)
+    except Exception as e:
+        print(f"Atlas Vector Search unavailable ({e}), using in-memory similarity fallback.")
 
-    docs = list(results)
+    # Fallback if Atlas index is not ready or returns 0 results
+    if not docs:
+        all_docs = list(knowledge_base.find({"verified": True}, {"_id": 0}))
+        if all_docs:
+            import numpy as np
+            q_vec = np.array(query_vector)
+            scored = []
+            for d in all_docs:
+                if "embedding" in d:
+                    d_vec = np.array(d["embedding"])
+                    sim = float(np.dot(q_vec, d_vec) / (np.linalg.norm(q_vec) * np.linalg.norm(d_vec)))
+                    scored.append((sim, d))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            for sim, d in scored[:top_k]:
+                doc_copy = {k: v for k, v in d.items() if k != "embedding"}
+                doc_copy["score"] = sim
+                docs.append(doc_copy)
 
     # Debugging information during development.
     print("\nRetrieved documents:")
@@ -169,6 +194,7 @@ def retrieve_context(
         )
 
     return filtered_docs
+
 
 
 # --------------------------------------------------
