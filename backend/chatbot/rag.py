@@ -487,6 +487,25 @@ Answer:
 
 
     # --------------------------------------------------
+    # Detect unanswerable query -> Log Escalation
+    # --------------------------------------------------
+
+    unanswered_indicators = [
+        "not available in the provided",
+        "not available in the iiit kottayam",
+        "not available in the knowledge base",
+        "couldn't find a verified answer",
+        "information is not available",
+    ]
+    if any(ind in answer.lower() for ind in unanswered_indicators):
+        print(f"\n[Escalation] Knowledge base lacks info for query: '{query}'. Logging escalation...")
+        if session_id:
+            log_escalation(
+                query=query,
+                session_id=session_id
+            )
+
+    # --------------------------------------------------
     # Sources
     # --------------------------------------------------
 

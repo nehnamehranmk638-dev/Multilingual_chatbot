@@ -452,7 +452,7 @@ def resolve_room_location(query):
 # ============================================================
 
 
-def run_general_rag(query):
+def run_general_rag(query, session_id=None):
 
     # Retrieve relevant documents
     context_docs = retrieve_context(
@@ -463,7 +463,8 @@ def run_general_rag(query):
     # Generate grounded answer
     answer, sources = generate_answer(
         query,
-        context_docs
+        context_docs,
+        session_id=session_id
     )
 
     return {
@@ -594,7 +595,8 @@ def run_agent(
     # --------------------------------------------------------
 
     result = run_general_rag(
-        standalone_query
+        standalone_query,
+        session_id=session_id
     )
 
     return {
