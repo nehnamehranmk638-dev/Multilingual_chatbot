@@ -6,9 +6,13 @@ from .db import db
 users = db["users"]
 
 # ----------------------------------------------------------
-# Ensure unique index on email
+# Collection
 # ----------------------------------------------------------
-users.create_index("email", unique=True)
+def _ensure_index():
+    try:
+        users.create_index("email", unique=True)
+    except Exception:
+        pass
 
 
 def hash_password(password: str) -> str:
@@ -36,9 +40,13 @@ def create_user(name: str, email: str, password: str, role: str) -> dict:
     if role not in ("student", "parent"):
         raise ValueError("Invalid role")
 
+    clean_email = email.strip().lower()
+    if users.find_one({"email": clean_email}):
+        raise ValueError("Email already registered")
+
     doc = {
         "name": name.strip(),
-        "email": email.strip().lower(),
+        "email": clean_email,
         "password_hash": hash_password(password),
         "role": role,
         "created_at": datetime.now(timezone.utc),
