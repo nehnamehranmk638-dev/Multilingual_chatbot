@@ -12,6 +12,7 @@ from .feedback_service import (
     store_feedback,
 )
 from .admin_auth import require_admin
+from .auth_service import require_auth
 
 
 # ============================================================
@@ -19,6 +20,7 @@ from .admin_auth import require_admin
 # ============================================================
 
 @api_view(['POST'])
+@require_auth
 def chat(request):
 
     user_message = request.data.get(
@@ -85,26 +87,32 @@ def chat(request):
 
 
     # --------------------------------------------------------
-    # Save bot response
-    #
-    # Capture MongoDB inserted ID so the frontend can
-    # associate 👍 / 👎 feedback with this exact response.
+    # Save user message & bot response
     # --------------------------------------------------------
 
-    bot_insert_result = messages.insert_one({
+    user_info = getattr(request, 'user_data', {}) or {}
+    user_id = user_info.get("user_id")
+    user_role = user_info.get("role")
 
+    messages.insert_one({
         "session_id": session_id,
-
-        "sender": "bot",
-
-        "content": result["answer"],
-
-        "sources": result["sources"],
-
-        "type": result["type"],
-
+        "sender": "user",
+        "content": user_message,
         "language": result["language"],
+        "user_id": user_id,
+        "user_role": user_role,
+        "timestamp": datetime.utcnow()
+    })
 
+    bot_insert_result = messages.insert_one({
+        "session_id": session_id,
+        "sender": "bot",
+        "content": result["answer"],
+        "sources": result["sources"],
+        "type": result["type"],
+        "language": result["language"],
+        "user_id": user_id,
+        "user_role": user_role,
         "timestamp": datetime.utcnow()
     })
 
@@ -139,6 +147,7 @@ def chat(request):
 # ============================================================
 
 @api_view(['POST'])
+@require_auth
 def speech_to_text(request):
 
     if 'audio' not in request.FILES:

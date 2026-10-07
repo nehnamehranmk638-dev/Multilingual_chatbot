@@ -75,8 +75,12 @@ export default function ChatInput({ onSendMessage, disabled }) {
       const formData = new FormData();
       formData.append('audio', blob, 'speech.wav');
 
+      const token = localStorage.getItem('authToken');
       const response = await fetch('http://127.0.0.1:8000/api/speech/', {
         method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: formData,
       });
 

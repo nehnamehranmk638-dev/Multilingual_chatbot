@@ -4,6 +4,9 @@ import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
 import QuickPrompts from './components/QuickPrompts';
 import CampusMapModal from './components/CampusMapModal';
+import LoginPage from './components/LoginPage';
+import SignupPage from './components/SignupPage';
+import FeedbackDialog from './components/FeedbackDialog';
 import { Globe2, Sparkles, MapPin, Compass } from 'lucide-react';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
@@ -12,8 +15,28 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [showGeneralFeedback, setShowGeneralFeedback] = useState(false);
   const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 9));
-  
+
+  // ----------------------------------------------------------
+  // AUTH STATE
+  // ----------------------------------------------------------
+  // 'login' | 'signup' | 'chat'
+  const [page, setPage] = useState(() => {
+    // If a valid token exists in localStorage, go straight to chat
+    return localStorage.getItem('authToken') ? 'chat' : 'login';
+  });
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return null;
+    return {
+      name:  localStorage.getItem('userName')  || '',
+      email: localStorage.getItem('userEmail') || '',
+      role:  localStorage.getItem('userRole')  || '',
+    };
+  });
+
   const messagesEndRef = useRef(null);
 
   /*
@@ -97,6 +120,49 @@ export default function App() {
    * ---------------------------------------------------------
    */
 
+  // ----------------------------------------------------------
+  // AUTH HANDLERS
+  // ----------------------------------------------------------
+
+  const handleLoginSuccess = (user, redirect) => {
+    if (redirect === 'signup') { setPage('signup'); return; }
+    if (redirect === 'login')  { setPage('login');  return; }
+    setCurrentUser(user);
+    setUserMode(user?.role || '');
+    setPage('chat');
+  };
+
+  const handleLogout = async () => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      try {
+        await fetch('http://127.0.0.1:8000/api/auth/logout/', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch { /* ignore network errors on logout */ }
+    }
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userMode');
+    setCurrentUser(null);
+    setUserMode('');
+    setMessages([]);
+    setPage('login');
+  };
+
+  // ----------------------------------------------------------
+  // AUTH GUARD: show login/signup pages before chat
+  // ----------------------------------------------------------
+  if (page === 'login') {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+  if (page === 'signup') {
+    return <SignupPage onSignupSuccess={handleLoginSuccess} />;
+  }
+
   const handleReset = () => {
     if (
       messages.length > 0 &&
@@ -169,6 +235,9 @@ export default function App() {
           headers: {
             'Content-Type':
               'application/json',
+            ...(localStorage.getItem('authToken')
+              ? { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+              : {}),
           },
 
           body: JSON.stringify({
@@ -178,6 +247,10 @@ export default function App() {
         }
       );
 
+      if (response.status === 401) {
+        handleLogout();
+        throw new Error('Authentication required. Please log in.');
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -366,27 +439,17 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Header */}
-      <Header 
-        onReset={handleReset} 
-        onOpenMap={() => setIsMapOpen(true)}
-        messageCount={messages.length} 
-      />
 
       {/* =====================================================
-          HEADER
+          HEADER  (single render – replaces duplicate)
           ===================================================== */}
-
       <Header
         onReset={handleReset}
-
-        messageCount={
-          messages.length
-        }
-
-        onFeedback={() =>
-          setShowGeneralFeedback(true)
-        }
+        onOpenMap={() => setIsMapOpen(true)}
+        messageCount={messages.length}
+        onFeedback={() => setShowGeneralFeedback(true)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
 
@@ -543,6 +606,19 @@ export default function App() {
           handleSendMessage(query);
         }}
       />
+
+      {/* General Feedback Modal */}
+      {showGeneralFeedback && (
+        <FeedbackDialog
+          type="general"
+          sessionId={sessionId}
+          messageId={null}
+          language={currentLanguage}
+          userMode={userMode}
+          onClose={() => setShowGeneralFeedback(false)}
+          onSubmit={handleGeneralFeedbackSubmit}
+        />
+      )}
     </div>
   );
 }

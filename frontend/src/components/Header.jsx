@@ -1,7 +1,18 @@
 import React from 'react';
-import { RotateCcw, MapPin, Compass } from 'lucide-react';
+import { RotateCcw, Compass, LogOut, MessageSquare } from 'lucide-react';
 
-export default function Header({ onReset, onOpenMap, messageCount }) {
+export default function Header({
+  onReset,
+  onOpenMap,
+  messageCount,
+  onFeedback,
+  currentUser,
+  onLogout,
+}) {
+  const isStudent = currentUser?.role === 'student';
+  const isParent = currentUser?.role === 'parent';
+  const roleLabel = isStudent ? '👤 Student' : isParent ? '👨‍👩‍👧 Parent' : (currentUser?.role ? `👤 ${currentUser.role}` : '');
+
   return (
     <header className="chat-header">
       <div className="header-brand">
@@ -15,8 +26,16 @@ export default function Header({ onReset, onOpenMap, messageCount }) {
               <span className="status-dot"></span>
               AI Online
             </span>
+            {roleLabel && (
+              <span
+                className={`role-badge ${isStudent ? 'role-student' : 'role-parent'}`}
+                title={`Logged in as ${currentUser?.name || ''} (${currentUser?.email || ''})`}
+              >
+                {roleLabel} {currentUser?.name ? `• ${currentUser.name}` : ''}
+              </span>
+            )}
           </h1>
-          <p>Official Multilingual Admission & Campus Guide</p>
+          <p>Official Multilingual Admission &amp; Campus Guide</p>
         </div>
       </div>
 
@@ -32,6 +51,18 @@ export default function Header({ onReset, onOpenMap, messageCount }) {
           <span>Campus Map &amp; Rooms</span>
         </button>
 
+        {/* Give Feedback Button */}
+        {onFeedback && (
+          <button
+            className="btn-icon"
+            onClick={onFeedback}
+            title="Give Feedback"
+            aria-label="Give Feedback"
+          >
+            <MessageSquare size={17} />
+          </button>
+        )}
+
         {/* Reset Chat Button */}
         <button 
           className="btn-icon" 
@@ -41,6 +72,18 @@ export default function Header({ onReset, onOpenMap, messageCount }) {
         >
           <RotateCcw size={17} />
         </button>
+
+        {/* Logout Button */}
+        {onLogout && (
+          <button
+            className="btn-icon btn-logout"
+            onClick={onLogout}
+            title="Log Out"
+            aria-label="Log Out"
+          >
+            <LogOut size={17} />
+          </button>
+        )}
       </div>
     </header>
   );
