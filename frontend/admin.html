@@ -43,6 +43,30 @@
         
         .error-msg { color: #d93025; margin-bottom: 15px; font-size: 14px; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+
+        /* Analytics – KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 8px; }
+        .kpi-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 18px 14px; text-align: center; }
+        .kpi-card.kpi-green { border-left: 4px solid #34a853; }
+        .kpi-card.kpi-red   { border-left: 4px solid #ea4335; }
+        .kpi-card.kpi-orange{ border-left: 4px solid #fbbc04; }
+        .kpi-value { font-size: 2rem; font-weight: 700; color: #1a73e8; line-height: 1.1; }
+        .kpi-label { font-size: 0.8rem; color: #666; margin-top: 4px; }
+
+        /* Analytics – language bars */
+        .lang-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.88rem; }
+        .lang-bar-label { width: 90px; text-align: right; color: #444; flex-shrink: 0; }
+        .lang-bar-track { flex: 1; background: #e8eaed; border-radius: 4px; height: 18px; overflow: hidden; }
+        .lang-bar-fill { height: 100%; background: #1a73e8; border-radius: 4px; transition: width 0.4s ease; }
+        .lang-bar-count { width: 40px; color: #555; flex-shrink: 0; }
+
+        /* Analytics – stat boxes */
+        .stats-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+        .stat-box { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px 24px; text-align: center; min-width: 110px; }
+        .stat-box span { font-size: 1.6rem; font-weight: 700; color: #1a73e8; }
+        .stat-box.stat-green { border-left: 4px solid #34a853; }
+        .stat-box.stat-red   { border-left: 4px solid #ea4335; }
+        .stat-box.stat-orange{ border-left: 4px solid #fbbc04; }
     </style>
 </head>
 <body>
@@ -67,6 +91,7 @@
                 <button class="tab-btn active" onclick="switchTab(event, 'kb')">Knowledge Base</button>
                 <button class="tab-btn" onclick="switchTab(event, 'escalations')">Escalations</button>
                 <button class="tab-btn" onclick="switchTab(event, 'feedback')">Feedback</button>
+                <button class="tab-btn" onclick="switchTab(event, 'analytics')">📊 Analytics</button>
             </div>
 
             <!-- KB Tab -->
@@ -121,6 +146,66 @@
                     <tbody></tbody>
                 </table>
             </div>
+
+            <!-- Analytics Tab -->
+            <div id="analytics-tab" class="tab-content card hidden">
+                <div class="flex-between">
+                    <h2>📊 Analytics Dashboard</h2>
+                    <button type="button" onclick="loadAnalytics()" style="font-size:13px; padding:8px 14px;">🔄 Refresh</button>
+                </div>
+                <div id="analytics-loading" style="text-align:center; padding:30px; color:#888;">Loading analytics…</div>
+                <div id="analytics-content" class="hidden">
+
+                    <!-- KPI Cards -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="kpi-total-queries">—</div>
+                            <div class="kpi-label">Total Queries</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="kpi-sessions">—</div>
+                            <div class="kpi-label">Unique Sessions</div>
+                        </div>
+                        <div class="kpi-card kpi-green">
+                            <div class="kpi-value" id="kpi-helpful">—</div>
+                            <div class="kpi-label">Helpful Feedback</div>
+                        </div>
+                        <div class="kpi-card kpi-red">
+                            <div class="kpi-value" id="kpi-not-helpful">—</div>
+                            <div class="kpi-label">Not Helpful</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="kpi-escalations">—</div>
+                            <div class="kpi-label">Total Escalations</div>
+                        </div>
+                        <div class="kpi-card kpi-orange">
+                            <div class="kpi-value" id="kpi-pending">—</div>
+                            <div class="kpi-label">Pending Escalations</div>
+                        </div>
+                    </div>
+
+                    <!-- Queries by Language -->
+                    <h3 style="margin-top:24px;">Queries by Language</h3>
+                    <div id="lang-bars"></div>
+
+                    <!-- Feedback Summary -->
+                    <h3 style="margin-top:24px;">Feedback Summary</h3>
+                    <div class="stats-row">
+                        <div class="stat-box stat-green"><span id="stat-helpful">—</span><br><small>Helpful</small></div>
+                        <div class="stat-box stat-red"><span id="stat-not-helpful">—</span><br><small>Not Helpful</small></div>
+                        <div class="stat-box"><span id="stat-pct">—</span><br><small>Helpful %</small></div>
+                    </div>
+
+                    <!-- Escalations Summary -->
+                    <h3 style="margin-top:24px;">Escalations Summary</h3>
+                    <div class="stats-row">
+                        <div class="stat-box"><span id="stat-esc-total">—</span><br><small>Total</small></div>
+                        <div class="stat-box stat-orange"><span id="stat-esc-pending">—</span><br><small>Pending</small></div>
+                    </div>
+
+                </div><!-- /analytics-content -->
+            </div><!-- /analytics-tab -->
+
         </div>
     </div>
 
@@ -265,6 +350,7 @@
             if (tabName === 'kb') loadKb();
             else if (tabName === 'escalations') loadEscalations();
             else if (tabName === 'feedback') loadFeedback();
+            else if (tabName === 'analytics') loadAnalytics();
         }
 
         function formatDate(dt) {
@@ -359,7 +445,7 @@
                 }
                 closeModal('kb-modal');
                 loadKb();
-            } catch (err) {
+            } catch (err) {7
                 alert('Error: ' + err.message);
             }
         }
@@ -459,6 +545,60 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        // ================= ANALYTICS =================
+        async function loadAnalytics() {
+            const loading = document.getElementById('analytics-loading');
+            const content = document.getElementById('analytics-content');
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+
+            try {
+                const data = await apiFetch('/analytics/');
+
+                // KPI cards
+                document.getElementById('kpi-total-queries').innerText = data.total_queries ?? 0;
+                document.getElementById('kpi-sessions').innerText = data.unique_sessions ?? '—';
+                document.getElementById('kpi-helpful').innerText = data.feedback.helpful ?? 0;
+                document.getElementById('kpi-not-helpful').innerText = data.feedback.not_helpful ?? 0;
+                document.getElementById('kpi-escalations').innerText = data.escalations.total ?? 0;
+                document.getElementById('kpi-pending').innerText = data.escalations.pending ?? 0;
+
+                // Language bars
+                const langBars = document.getElementById('lang-bars');
+                langBars.innerHTML = '';
+                const langs = data.queries_by_language || [];
+                const maxCount = langs.length > 0 ? Math.max(...langs.map(l => l.count)) : 1;
+                langs.forEach(item => {
+                    const pct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0;
+                    const row = document.createElement('div');
+                    row.className = 'lang-bar-row';
+                    row.innerHTML = `
+                        <div class="lang-bar-label">${escapeHtml(item.language)}</div>
+                        <div class="lang-bar-track"><div class="lang-bar-fill" style="width:${pct}%"></div></div>
+                        <div class="lang-bar-count">${item.count}</div>
+                    `;
+                    langBars.appendChild(row);
+                });
+                if (langs.length === 0) {
+                    langBars.innerHTML = '<p style="color:#888; font-size:0.9rem;">No query data yet.</p>';
+                }
+
+                // Feedback summary
+                document.getElementById('stat-helpful').innerText = data.feedback.helpful ?? 0;
+                document.getElementById('stat-not-helpful').innerText = data.feedback.not_helpful ?? 0;
+                document.getElementById('stat-pct').innerText = (data.feedback.helpful_percentage ?? 0) + '%';
+
+                // Escalations summary
+                document.getElementById('stat-esc-total').innerText = data.escalations.total ?? 0;
+                document.getElementById('stat-esc-pending').innerText = data.escalations.pending ?? 0;
+
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+            } catch (err) {
+                loading.innerText = 'Failed to load analytics: ' + err.message;
+            }
         }
     </script>
 </body>

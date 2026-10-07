@@ -7,7 +7,8 @@ from .admin_views import (
     delete_kb_doc,
     get_escalations,
     resolve_escalation,
-    get_feedback
+    get_feedback,
+    analytics_summary
 )
 
 urlpatterns = [
@@ -28,5 +29,7 @@ urlpatterns = [
     # Admin Feedback Routes
     path('admin/feedback/', get_feedback, name='admin_feedback_list'),
 
-    
+    # Admin Analytics Route
+    path('admin/analytics/', analytics_summary, name='admin_analytics'),
+
 ]
