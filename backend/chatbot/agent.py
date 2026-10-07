@@ -480,7 +480,10 @@ def run_general_rag(query):
 
 def run_agent(
     query,
-    conversation_history=None
+    conversation_history=None,
+    session_id=None,
+    *args,
+    **kwargs
 ):
     """
     Main agent pipeline.
@@ -608,7 +611,10 @@ def run_agent(
 
 def process_multilingual_query(
     user_message,
-    conversation_history=None
+    conversation_history=None,
+    session_id=None,
+    *args,
+    **kwargs
 ):
     """
     Multilingual processing pipeline.
@@ -667,7 +673,8 @@ def process_multilingual_query(
 
     result = run_agent(
         english_query,
-        conversation_history
+        conversation_history,
+        session_id=session_id
     )
 
     answer = result["answer"]
