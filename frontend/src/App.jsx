@@ -6,6 +6,8 @@ import QuickPrompts from './components/QuickPrompts';
 import CampusMapModal from './components/CampusMapModal';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
+import AdminLoginPage from './components/AdminLoginPage';
+import AdminDashboard from './components/AdminDashboard';
 import FeedbackDialog from './components/FeedbackDialog';
 import { Globe2, Sparkles, MapPin, Compass } from 'lucide-react';
 
@@ -19,13 +21,32 @@ export default function App() {
   const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 9));
 
   // ----------------------------------------------------------
-  // AUTH STATE
+  // URL PATH ROUTING & AUTH STATE
   // ----------------------------------------------------------
-  // 'login' | 'signup' | 'chat'
-  const [page, setPage] = useState(() => {
-    // If a valid token exists in localStorage, go straight to chat
+  const getRouteFromPath = (pathname) => {
+    const p = (pathname || window.location.pathname).toLowerCase();
+    if (p.startsWith('/admin/login')) return 'admin-login';
+    if (p.startsWith('/admin')) return 'admin-dashboard';
+    if (p.startsWith('/signup')) return 'signup';
+    if (p.startsWith('/login')) return 'login';
+    if (p.startsWith('/chat')) return 'chat';
     return localStorage.getItem('authToken') ? 'chat' : 'login';
-  });
+  };
+
+  const [currentRoute, setCurrentRoute] = useState(() => getRouteFromPath(window.location.pathname));
+
+  const navigate = (path) => {
+    window.history.pushState({}, '', path);
+    setCurrentRoute(getRouteFromPath(path));
+  };
+
+  useEffect(() => {
+    const onPop = () => {
+      setCurrentRoute(getRouteFromPath(window.location.pathname));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   const [currentUser, setCurrentUser] = useState(() => {
     const token = localStorage.getItem('authToken');
@@ -121,15 +142,16 @@ export default function App() {
    */
 
   // ----------------------------------------------------------
-  // AUTH HANDLERS
+  // AUTH & NAVIGATION HANDLERS
   // ----------------------------------------------------------
 
   const handleLoginSuccess = (user, redirect) => {
-    if (redirect === 'signup') { setPage('signup'); return; }
-    if (redirect === 'login')  { setPage('login');  return; }
+    if (redirect === 'signup') { navigate('/signup'); return; }
+    if (redirect === 'login')  { navigate('/login');  return; }
+    if (redirect === 'admin-login') { navigate('/admin/login'); return; }
     setCurrentUser(user);
     setUserMode(user?.role || '');
-    setPage('chat');
+    navigate('/chat');
   };
 
   const handleLogout = async () => {
@@ -150,17 +172,47 @@ export default function App() {
     setCurrentUser(null);
     setUserMode('');
     setMessages([]);
-    setPage('login');
+    navigate('/login');
   };
 
   // ----------------------------------------------------------
-  // AUTH GUARD: show login/signup pages before chat
+  // ADMIN ROUTES
   // ----------------------------------------------------------
-  if (page === 'login') {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  if (currentRoute === 'admin-dashboard') {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken) {
+      return (
+        <AdminLoginPage
+          onAdminLoginSuccess={() => navigate('/admin')}
+          onNavigateToApp={navigate}
+        />
+      );
+    }
+    return <AdminDashboard onLogout={() => navigate('/admin/login')} />;
   }
-  if (page === 'signup') {
-    return <SignupPage onSignupSuccess={handleLoginSuccess} />;
+
+  if (currentRoute === 'admin-login') {
+    const adminToken = localStorage.getItem('adminToken');
+    if (adminToken) {
+      return <AdminDashboard onLogout={() => navigate('/admin/login')} />;
+    }
+    return (
+      <AdminLoginPage
+        onAdminLoginSuccess={() => navigate('/admin')}
+        onNavigateToApp={navigate}
+      />
+    );
+  }
+
+  // ----------------------------------------------------------
+  // STUDENT / PARENT ROUTES
+  // ----------------------------------------------------------
+  if (currentRoute === 'signup') {
+    return <SignupPage onSignupSuccess={handleLoginSuccess} onNavigate={navigate} />;
+  }
+
+  if (currentRoute === 'login' || !currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} onNavigate={navigate} />;
   }
 
   const handleReset = () => {

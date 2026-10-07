@@ -85,6 +85,13 @@ export default function LoginPage({ onLoginSuccess }) {
             Create account
           </a>
         </p>
+
+        <p className="auth-switch" style={{ marginTop: '10px', fontSize: '0.8rem' }}>
+          Staff / Faculty?{' '}
+          <a href="/admin/login" className="auth-link" onClick={(e) => { e.preventDefault(); onLoginSuccess(null, 'admin-login'); }}>
+            Admin Portal →
+          </a>
+        </p>
       </div>
     </div>
   );

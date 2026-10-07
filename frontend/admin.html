@@ -74,9 +74,10 @@
         
         <!-- LOGIN VIEW -->
         <div id="login-view" class="card">
-            <h2>Admin Login</h2>
+            <h2>Admin Portal Login</h2>
             <div id="login-error" class="error-msg hidden"></div>
-            <input type="password" id="admin-password" placeholder="Enter Admin Password" onkeydown="if(event.key === 'Enter') login()">
+            <input type="text" id="admin-username" placeholder="Username / Email" onkeydown="if(event.key === 'Enter') login()">
+            <input type="password" id="admin-password" placeholder="Password" onkeydown="if(event.key === 'Enter') login()">
             <button type="button" id="login-btn" onclick="login()">Login</button>
         </div>
 
@@ -260,10 +261,16 @@
 
     <script>
         const API_BASE = 'http://127.0.0.1:8000/api/admin';
+        let adminToken = localStorage.getItem('adminToken') || '';
         let adminPass = '';
 
         async function apiFetch(endpoint, method = 'GET', body = null) {
-            const headers = { 'X-Admin-Password': adminPass };
+            const headers = {};
+            if (adminToken) {
+                headers['Authorization'] = 'Bearer ' + adminToken;
+            } else if (adminPass) {
+                headers['X-Admin-Password'] = adminPass;
+            }
             if (body) headers['Content-Type'] = 'application/json';
             
             const res = await fetch(API_BASE + endpoint, {
@@ -291,14 +298,14 @@
         }
 
         async function login() {
+            const usernameInput = document.getElementById('admin-username');
             const pwdInput = document.getElementById('admin-password');
             const loginBtn = document.getElementById('login-btn');
             const errEl = document.getElementById('login-error');
             
+            const username = usernameInput ? usernameInput.value.trim() : '';
             const pwd = pwdInput.value.trim();
             if (!pwd) return;
-            
-            adminPass = pwd;
             
             // Set loading state
             if (loginBtn) {
@@ -308,7 +315,25 @@
             if (errEl) errEl.classList.add('hidden');
             
             try {
-                // Test auth by calling API first
+                // If username provided, authenticate with Django admin login API
+                if (username) {
+                    const authRes = await fetch(API_BASE + '/login/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password: pwd })
+                    });
+                    const authData = await authRes.json();
+                    if (!authRes.ok) {
+                        throw new Error(authData.error || 'Invalid credentials');
+                    }
+                    adminToken = authData.token;
+                    localStorage.setItem('adminToken', adminToken);
+                } else {
+                    // Fallback to legacy password
+                    adminPass = pwd;
+                }
+
+                // Verify by fetching KB
                 currentKbDocs = await apiFetch('/kb/');
                 
                 // Show dashboard upon success
@@ -318,12 +343,9 @@
                 // Render table
                 renderKbTable(currentKbDocs);
             } catch (err) {
-                if (err.message === 'Unauthorized') {
-                    errEl.innerText = 'Invalid Password. Please try again.';
-                } else {
-                    errEl.innerText = 'Error: ' + err.message + '. Ensure Django server is running at http://127.0.0.1:8000';
-                }
+                errEl.innerText = err.message || 'Authentication failed. Please try again.';
                 errEl.classList.remove('hidden');
+                adminToken = '';
                 adminPass = '';
             } finally {
                 if (loginBtn) {
@@ -333,9 +355,19 @@
             }
         }
         
-        function logout() {
+        async function logout() {
+            if (adminToken) {
+                try {
+                    await fetch(API_BASE + '/logout/', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + adminToken }
+                    });
+                } catch {}
+            }
+            adminToken = '';
             adminPass = '';
-            document.getElementById('admin-password').value = '';
+            localStorage.removeItem('adminToken');
+            if (document.getElementById('admin-password')) document.getElementById('admin-password').value = '';
             document.getElementById('dashboard-view').classList.add('hidden');
             document.getElementById('login-view').classList.remove('hidden');
         }

@@ -216,3 +216,105 @@ def analytics_summary(request):
 
     except Exception as e:
         return Response({"error": "Failed to load analytics", "details": str(e)}, status=500)
+
+
+# ============================================================
+# ADMIN AUTHENTICATION ENDPOINTS
+# ============================================================
+
+from django.contrib.auth import authenticate, login as django_login, logout as django_logout
+from django.contrib.auth.models import User
+from .admin_auth import create_admin_token, delete_admin_token, _extract_bearer_token
+
+
+@api_view(['POST'])
+def admin_login(request):
+    """
+    Authenticate admin credentials against Django's built-in User system.
+    Supports either username or email.
+    Explicitly rejects Student/Parent accounts and non-staff/non-superuser accounts.
+    """
+    username_or_email = request.data.get("username", "").strip()
+    password = request.data.get("password", "")
+
+    if not username_or_email or not password:
+        return Response({"error": "Please enter both username/email and password."}, status=400)
+
+    # 1. Attempt authentication with username directly
+    user = authenticate(request, username=username_or_email, password=password)
+
+    # 2. If not matched and looks like email, lookup username from email
+    if not user and "@" in username_or_email:
+        try:
+            matched_user = User.objects.filter(email__iexact=username_or_email).first()
+            if matched_user:
+                user = authenticate(request, username=matched_user.username, password=password)
+        except Exception:
+            pass
+
+    # 3. If authentication failed, check if this is a Student/Parent account in MongoDB
+    if not user:
+        from .db import db
+        student_or_parent = db["users"].find_one({"email": username_or_email.lower()})
+        if student_or_parent:
+            return Response(
+                {"error": "Access denied. Student and Parent accounts cannot log in to the Admin Portal."},
+                status=403
+            )
+        return Response({"error": "Invalid username or password."}, status=401)
+
+    # 4. Check staff / superuser permissions
+    if not (user.is_staff or user.is_superuser):
+        return Response(
+            {"error": "Access denied. You do not have administrator permissions."},
+            status=403
+        )
+
+    # 5. Log in Django session if session framework is available
+    try:
+        django_login(request, user)
+    except Exception:
+        pass
+
+    # 6. Generate secure admin token
+    token = create_admin_token(user)
+
+    return Response({
+        "message": "Admin authentication successful",
+        "token": token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+        }
+    })
+
+
+@api_view(['POST'])
+def admin_logout(request):
+    """
+    Invalidate admin token and session on logout.
+    """
+    token = _extract_bearer_token(request)
+    if token:
+        delete_admin_token(token)
+    try:
+        django_logout(request)
+    except Exception:
+        pass
+    return Response({"message": "Logged out successfully."})
+
+
+@api_view(['GET'])
+@require_admin
+def admin_me(request):
+    """
+    Verify current admin authentication state.
+    """
+    return Response({
+        "authenticated": True,
+        "user": getattr(request, 'admin_user', {})
+    })
+

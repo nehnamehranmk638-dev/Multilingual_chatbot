@@ -9,7 +9,10 @@ from .admin_views import (
     get_escalations,
     resolve_escalation,
     get_feedback,
-    analytics_summary
+    analytics_summary,
+    admin_login,
+    admin_logout,
+    admin_me
 )
 
 urlpatterns = [
@@ -38,5 +41,10 @@ urlpatterns = [
 
     # Admin Analytics Route
     path('admin/analytics/', analytics_summary, name='admin_analytics'),
+
+    # Admin Authentication Routes
+    path('admin/login/', admin_login, name='admin_login'),
+    path('admin/logout/', admin_logout, name='admin_logout'),
+    path('admin/me/', admin_me, name='admin_me'),
 
 ]
