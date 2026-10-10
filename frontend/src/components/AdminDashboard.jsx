@@ -12,6 +12,7 @@ export default function AdminDashboard({ onLogout }) {
 
   // KB State
   const [kbDocs, setKbDocs] = useState([]);
+  const [kbVerifiedFilter, setKbVerifiedFilter] = useState('all');
   const [kbModalOpen, setKbModalOpen] = useState(false);
   const [currentDoc, setCurrentDoc] = useState({ id: null, title: '', content: '', category: '', language: 'en', source: '', verified: false });
 
@@ -58,11 +59,16 @@ export default function AdminDashboard({ onLogout }) {
     }
   };
 
-  const loadKb = async () => {
+  const loadKb = async (filterOverride) => {
     setLoading(true);
     setError('');
+    const filter = filterOverride !== undefined ? filterOverride : kbVerifiedFilter;
     try {
-      const res = await fetch(`${API_BASE}/kb/`, { headers: authHeaders });
+      let endpoint = `${API_BASE}/kb/`;
+      if (filter === 'false' || filter === 'true') {
+        endpoint += `?verified=${filter}`;
+      }
+      const res = await fetch(endpoint, { headers: authHeaders });
       if (res.status === 401) throw new Error('Unauthorized');
       if (!res.ok) throw new Error('Failed to fetch knowledge base');
       const data = await res.json();
@@ -308,15 +314,29 @@ export default function AdminDashboard({ onLogout }) {
         <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>Knowledge Base Documents</h2>
-            <button
-              onClick={() => {
-                setCurrentDoc({ id: null, title: '', content: '', category: '', language: 'en', source: '', verified: false });
-                setKbModalOpen(true);
-              }}
-              style={{ background: '#1a73e8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              + Add Document
-            </button>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <select
+                value={kbVerifiedFilter}
+                onChange={(e) => {
+                  setKbVerifiedFilter(e.target.value);
+                  loadKb(e.target.value);
+                }}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+              >
+                <option value="all">All Documents</option>
+                <option value="false">Unverified (Pending Review)</option>
+                <option value="true">Verified (Approved)</option>
+              </select>
+              <button
+                onClick={() => {
+                  setCurrentDoc({ id: null, title: '', content: '', category: '', language: 'en', source: '', verified: false });
+                  setKbModalOpen(true);
+                }}
+                style={{ background: '#1a73e8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                + Add Document
+              </button>
+            </div>
           </div>
 
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>

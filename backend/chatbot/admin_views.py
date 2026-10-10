@@ -12,7 +12,14 @@ escalations = db["escalations"]
 @api_view(['GET'])
 @require_admin
 def get_kb_docs(request):
-    docs = list(knowledge_base.find({}, {"embedding": 0}))
+    query = {}
+    verified_param = request.query_params.get("verified", None)
+    if verified_param is not None:
+        if verified_param.lower() == "false":
+            query["verified"] = False
+        elif verified_param.lower() == "true":
+            query["verified"] = True
+    docs = list(knowledge_base.find(query, {"embedding": 0}))
     for doc in docs:
         doc["_id"] = str(doc["_id"])
     return Response(docs)

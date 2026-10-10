@@ -9,3 +9,5 @@ langdetect
 python-docx
 gTTS
 requests
+beautifulsoup4
+pypdf

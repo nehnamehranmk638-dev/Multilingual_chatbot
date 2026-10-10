@@ -99,7 +99,14 @@
             <div id="kb-tab" class="tab-content card">
                 <div class="flex-between">
                     <h2>Knowledge Base Documents</h2>
-                    <button onclick="openKbModal()">+ Add Document</button>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="kb-verified-filter" onchange="loadKb()" style="margin-bottom: 0; padding: 8px 12px; width: auto; font-size: 13px;">
+                            <option value="all">All Documents</option>
+                            <option value="false">Unverified (Pending Review)</option>
+                            <option value="true">Verified (Approved)</option>
+                        </select>
+                        <button onclick="openKbModal()">+ Add Document</button>
+                    </div>
                 </div>
                 <table id="kb-table">
                     <thead>
@@ -395,7 +402,13 @@
 
         async function loadKb() {
             try {
-                currentKbDocs = await apiFetch('/kb/');
+                const filterEl = document.getElementById('kb-verified-filter');
+                const val = filterEl ? filterEl.value : 'all';
+                let endpoint = '/kb/';
+                if (val === 'false' || val === 'true') {
+                    endpoint += '?verified=' + val;
+                }
+                currentKbDocs = await apiFetch(endpoint);
                 renderKbTable(currentKbDocs);
             } catch (err) {
                 console.error('Failed to load KB docs:', err);
