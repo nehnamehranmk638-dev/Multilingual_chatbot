@@ -457,7 +457,7 @@ def run_general_rag(query, session_id=None):
     # Retrieve relevant documents
     context_docs = retrieve_context(
         query,
-        top_k=2,
+        top_k=4,
     )
 
     # Generate grounded answer
@@ -682,6 +682,19 @@ def process_multilingual_query(
     answer = result["answer"]
     sources = result["sources"]
     answer_type = result["type"]
+
+    # Double-check: if answer indicates information is unavailable, do NOT show sources
+    eng_lower = (answer or "").lower()
+    if any(phrase in eng_lower for phrase in [
+        "not available in the",
+        "not available in provided",
+        "couldn't find a verified answer",
+        "could not find a verified answer",
+        "does not contain information",
+        "does not contain any information",
+        "information is not available",
+    ]):
+        sources = []
 
     # --------------------------------------------------------
     # Step 4: Translate answer back to user's language

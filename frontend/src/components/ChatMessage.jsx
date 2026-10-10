@@ -4,6 +4,26 @@ import FeedbackDialog from './FeedbackDialog';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
+// Helper: Check if response indicates information is not available in knowledge base
+const isUnavailableAnswer = (text) => {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('not available in the') ||
+    lower.includes('not available in provided') ||
+    lower.includes('not available in the provided') ||
+    lower.includes('not available in the iiit kottayam') ||
+    lower.includes("couldn't find a verified answer") ||
+    lower.includes("could not find a verified answer") ||
+    lower.includes("could not be verified from the") ||
+    lower.includes("does not contain information") ||
+    lower.includes("does not contain any information") ||
+    (lower.includes('information') && lower.includes('not available')) ||
+    (lower.includes('knowledge base') && lower.includes('not available')) ||
+    (lower.includes('knowledge base') && lower.includes('lacks'))
+  );
+};
+
 export default function ChatMessage({ message, sessionId }) {
   const isBot = message.sender === 'bot';
   const [speaking, setSpeaking] = useState(false);
@@ -92,8 +112,8 @@ export default function ChatMessage({ message, sessionId }) {
             </div>
           )}
 
-          {/* Sources citations */}
-          {message.sources && message.sources.length > 0 && (
+          {/* Sources citations (only display when an actual answer was retrieved) */}
+          {message.sources && message.sources.length > 0 && !isUnavailableAnswer(message.content) && (
             <div className="sources-box">
               <BookOpen size={13} color="#38bdf8" />
               {message.sources.map((src, idx) => (

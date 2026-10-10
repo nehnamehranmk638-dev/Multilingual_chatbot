@@ -120,9 +120,6 @@ def retrieve_context(
     min_score=0.25
 ):
 
-
-
-
     # Convert query into the same embedding space
     # used by the knowledge base.
 
@@ -140,8 +137,8 @@ def retrieve_context(
                         "index": "vector_index",
                         "path": "embedding",
                         "queryVector": query_vector,
-                        "numCandidates": 50,
-                        "limit": top_k
+                        "numCandidates": 150,
+                        "limit": top_k * 3
                     }
                 },
                 {
@@ -164,7 +161,10 @@ def retrieve_context(
     except Exception as e:
         print(f"Atlas Vector Search unavailable ({e}), using in-memory similarity fallback.")
 
-    # Fallback if Atlas index is not ready or returns 0 results
+    # --------------------------------------------------
+    # In-memory fallback with larger candidate pool
+    # --------------------------------------------------
+
     if not docs:
         all_docs = list(knowledge_base.find({"verified": True}, {"_id": 0}))
         if all_docs:
@@ -174,14 +174,77 @@ def retrieve_context(
             for d in all_docs:
                 if "embedding" in d:
                     d_vec = np.array(d["embedding"])
-                    sim = float(np.dot(q_vec, d_vec) / (np.linalg.norm(q_vec) * np.linalg.norm(d_vec)))
-                    scored.append((sim, d))
+                    norm_q = np.linalg.norm(q_vec)
+                    norm_d = np.linalg.norm(d_vec)
+                    if norm_q > 0 and norm_d > 0:
+                        sim = float(np.dot(q_vec, d_vec) / (norm_q * norm_d))
+                        scored.append((sim, d))
             scored.sort(key=lambda x: x[0], reverse=True)
-            for sim, d in scored[:top_k]:
+            # Use a larger candidate pool (top_k * 5) to allow category boost to merge
+            for sim, d in scored[:top_k * 5]:
                 doc_copy = {k: v for k, v in d.items() if k != "embedding"}
                 doc_copy["score"] = sim
                 docs.append(doc_copy)
 
+    # --------------------------------------------------
+    # Category boost: if query mentions a specific topic,
+    # directly fetch docs from the matching category and
+    # merge them in so they are not missed by cosine ranking.
+    # --------------------------------------------------
+
+    CATEGORY_KEYWORDS = {
+        "fees": [
+            "fee", "fees", "tuition", "cost", "payment", "charges",
+            "hostel fee", "semester fee", "annual fee", "fee structure"
+        ],
+        "hostel": [
+            "hostel", "accommodation", "dormitory", "room", "mess",
+            "residence", "warden", "pg accommodation"
+        ],
+        "scholarships": [
+            "scholarship", "financial aid", "stipend", "grant",
+            "fee waiver", "assistance", "merit", "fellowship"
+        ],
+        "admission_process": [
+            "admission", "apply", "application", "jee", "josaa",
+            "csab", "cutoff", "rank", "merit list", "seat", "allotment",
+            "document", "eligibility", "criteria", "how to join"
+        ],
+        "eligibility": [
+            "eligibility", "qualification", "criteria", "10+2",
+            "board exam", "marks", "percentage", "minimum", "required"
+        ],
+        "contact": [
+            "contact", "phone", "email", "address", "reach",
+            "helpline", "office", "location", "how to contact"
+        ],
+    }
+
+    query_lower = query.lower()
+    boosted_categories = set()
+    for category, keywords in CATEGORY_KEYWORDS.items():
+        if any(kw in query_lower for kw in keywords):
+            boosted_categories.add(category)
+
+    if boosted_categories:
+        print(f"\n[Category Boost] Detected categories: {boosted_categories}")
+        existing_titles = {d.get("title") for d in docs}
+        for cat in boosted_categories:
+            cat_docs = list(knowledge_base.find(
+                {"verified": True, "category": cat},
+                {"_id": 0, "title": 1, "content": 1, "source": 1,
+                 "category": 1, "language": 1, "verified": 1}
+            ).limit(top_k * 2))
+            for cd in cat_docs:
+                if cd.get("title") not in existing_titles:
+                    cd["score"] = 0.95
+                    docs.append(cd)
+                    existing_titles.add(cd.get("title"))
+                else:
+                    # If already present with a lower score, bump score
+                    for existing_d in docs:
+                        if existing_d.get("title") == cd.get("title"):
+                            existing_d["score"] = max(existing_d.get("score", 0), 0.95)
 
     # --------------------------------------------------
     # Debugging information
@@ -214,7 +277,6 @@ def retrieve_context(
             doc.get("verified")
         )
 
-
     # --------------------------------------------------
     # Relevance filtering
     # --------------------------------------------------
@@ -225,6 +287,9 @@ def retrieve_context(
         if doc.get("score", 0) >= min_score
     ]
 
+    # Sort by score descending, then keep top_k * 2 to give LLM enough context
+    filtered_docs.sort(key=lambda x: x.get("score", 0), reverse=True)
+    filtered_docs = filtered_docs[:top_k * 2]
 
     print(
         "\nDocuments after relevance filtering:"
@@ -233,7 +298,6 @@ def retrieve_context(
     print(
         "====================================="
     )
-
 
     for i, doc in enumerate(
         filtered_docs,
@@ -244,7 +308,6 @@ def retrieve_context(
             f"{i}. {doc.get('title')} "
             f"(score={doc.get('score')})"
         )
-
 
     return filtered_docs
 
@@ -487,37 +550,56 @@ Answer:
 
 
     # --------------------------------------------------
-    # Detect unanswerable query -> Log Escalation
+    # Detect unanswerable query -> Log Escalation & Omit Sources
     # --------------------------------------------------
 
+    answer_lower = answer.lower()
     unanswered_indicators = [
         "not available in the provided",
         "not available in the iiit kottayam",
         "not available in the knowledge base",
         "couldn't find a verified answer",
+        "could not find a verified answer",
         "information is not available",
+        "does not contain information",
+        "does not contain any information",
+        "not mentioned in the provided",
+        "is not mentioned in the",
+        "not provided in the provided",
+        "is not provided in the",
     ]
-    if any(ind in answer.lower() for ind in unanswered_indicators):
+
+    is_unanswered = (
+        any(ind in answer_lower for ind in unanswered_indicators)
+        or ("not available" in answer_lower and ("knowledge base" in answer_lower or "provided" in answer_lower))
+        or ("does not contain" in answer_lower and ("knowledge base" in answer_lower or "information" in answer_lower))
+        or ("no information" in answer_lower and ("knowledge base" in answer_lower or "provided" in answer_lower))
+    )
+
+    if is_unanswered:
         print(f"\n[Escalation] Knowledge base lacks info for query: '{query}'. Logging escalation...")
         if session_id:
             log_escalation(
                 query=query,
                 session_id=session_id
             )
+        # Never display sources when the information was not found in the knowledge base
+        return answer, []
 
     # --------------------------------------------------
-    # Sources
+    # Sources (only for answering responses)
     # --------------------------------------------------
 
-    sources = [
-        doc.get("source")
-        for doc in verified_docs
-        if doc.get("source")
-    ]
-
+    seen = set()
+    unique_sources = []
+    for doc in verified_docs:
+        s = doc.get("source")
+        if s and s not in seen:
+            seen.add(s)
+            unique_sources.append(s)
 
     # --------------------------------------------------
     # Successful response
     # --------------------------------------------------
 
-    return answer, sources
+    return answer, unique_sources
