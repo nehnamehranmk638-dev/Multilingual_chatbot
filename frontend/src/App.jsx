@@ -11,9 +11,14 @@ import AdminDashboard from './components/AdminDashboard';
 import FeedbackDialog from './components/FeedbackDialog';
 import LogoutConfirmModal from './components/LogoutConfirmModal';
 import HubDashboard from './components/HubDashboard';
-import { Globe2, Sparkles, MapPin, Compass } from 'lucide-react';
+import HomeDashboard from './app/HomeDashboard';
+import Sidebar from './components/Sidebar';
+import { fetchSessions, fetchSessionHistory, sendChatMessage, deleteSession } from './api';
+import { Globe2, Sparkles, MapPin, Compass, Trash2 } from 'lucide-react';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE_URL = (typeof window !== 'undefined' && window.location.protocol === 'https:')
+  ? '/api'
+  : 'http://127.0.0.1:8000/api';
 
 export default function App() {
   const [messages, setMessages] = useState([]);
@@ -21,8 +26,16 @@ export default function App() {
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [showGeneralFeedback, setShowGeneralFeedback] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('chatLanguage') || 'en');
   const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 9));
+  const [sessions, setSessions] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const handleLanguageChange = (langCode) => {
+    setSelectedLanguage(langCode);
+    localStorage.setItem('chatLanguage', langCode);
+  };
 
   // ----------------------------------------------------------
   // URL PATH ROUTING & AUTH STATE
@@ -191,44 +204,86 @@ export default function App() {
   };
 
   // ----------------------------------------------------------
-  // ADMIN ROUTES
+  // SESSIONS / CHAT HISTORY LOGIC
   // ----------------------------------------------------------
-  if (currentRoute === 'admin-dashboard') {
-    const adminToken = localStorage.getItem('adminToken');
-    if (!adminToken) {
-      return (
-        <AdminLoginPage
-          onAdminLoginSuccess={() => navigate('/admin')}
-          onNavigateToApp={navigate}
-        />
-      );
+  const loadSessions = async () => {
+    try {
+      const data = await fetchSessions();
+      setSessions(data.sessions || []);
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
     }
-    return <AdminDashboard onLogout={() => navigate('/admin/login')} />;
-  }
+  };
 
-  if (currentRoute === 'admin-login') {
-    const adminToken = localStorage.getItem('adminToken');
-    if (adminToken) {
-      return <AdminDashboard onLogout={() => navigate('/admin/login')} />;
+  useEffect(() => {
+    if (currentUser) {
+      loadSessions();
     }
-    return (
-      <AdminLoginPage
-        onAdminLoginSuccess={() => navigate('/admin')}
-        onNavigateToApp={navigate}
-      />
-    );
-  }
+  }, [currentUser, activeView]);
 
-  // ----------------------------------------------------------
-  // STUDENT / PARENT ROUTES
-  // ----------------------------------------------------------
-  if (currentRoute === 'signup') {
-    return <SignupPage onSignupSuccess={handleLoginSuccess} onNavigate={navigate} />;
-  }
+  const handleSelectSession = async (targetSessionId) => {
+    if (targetSessionId === sessionId) return;
+    try {
+      setLoading(true);
+      const data = await fetchSessionHistory(targetSessionId);
+      const restored = (data.messages || []).map((m) => {
+        let timeStr = '';
+        if (m.timestamp) {
+          try {
+            timeStr = new Date(m.timestamp).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+          } catch {
+            timeStr = '';
+          }
+        }
+        return {
+          sender: m.sender,
+          content: m.content,
+          language: m.language || 'en',
+          sources: m.sources || [],
+          type: m.type || 'general',
+          message_id: m.message_id || null,
+          session_id: targetSessionId,
+          time: timeStr,
+        };
+      });
+      setSessionId(targetSessionId);
+      setMessages(restored);
+    } catch (err) {
+      console.error('Failed to load session history:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (currentRoute === 'login' || !currentUser) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} onNavigate={navigate} />;
-  }
+  const handleNewConversation = () => {
+    setMessages([]);
+    setSessionId('session-' + Math.random().toString(36).substring(2, 9));
+  };
+
+  const handleDeleteSessionClick = (targetSessionId) => {
+    setSessionToDelete(targetSessionId);
+  };
+
+  const handleConfirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    const toDeleteId = sessionToDelete;
+    setSessionToDelete(null);
+    try {
+      await deleteSession(toDeleteId);
+      // Immediately remove from sessions list in UI
+      setSessions((prev) => prev.filter((s) => s.session_id !== toDeleteId));
+      // If the currently open conversation was deleted, reset chat window to welcome state
+      if (sessionId === toDeleteId) {
+        handleNewConversation();
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+      alert('Failed to delete conversation. Please try again.');
+    }
+  };
 
   const handleReset = () => {
     if (
@@ -240,14 +295,7 @@ export default function App() {
       return;
     }
 
-    setMessages([]);
-
-    setSessionId(
-      'session-' +
-        Math.random()
-          .toString(36)
-          .substring(2, 9)
-    );
+    handleNewConversation();
   };
 
 
@@ -366,7 +414,10 @@ export default function App() {
           data.type || 'general',
 
         language:
-          data.language || 'en',
+          data.detected_code || data.language || 'en',
+
+        detected_code:
+          data.detected_code || data.language || 'en',
 
         language_name:
           data.language_name || '',
@@ -403,6 +454,9 @@ export default function App() {
         ...prev,
         botMessage,
       ]);
+
+      // Refresh chat sessions list so the new/updated conversation appears in sidebar
+      loadSessions();
 
     } catch (err) {
 
@@ -504,6 +558,46 @@ export default function App() {
    * ---------------------------------------------------------
    */
 
+  // ----------------------------------------------------------
+  // ADMIN ROUTES
+  // ----------------------------------------------------------
+  if (currentRoute === 'admin-dashboard') {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken) {
+      return (
+        <AdminLoginPage
+          onAdminLoginSuccess={() => navigate('/admin')}
+          onNavigateToApp={navigate}
+        />
+      );
+    }
+    return <AdminDashboard onLogout={() => navigate('/admin/login')} />;
+  }
+
+  if (currentRoute === 'admin-login') {
+    const adminToken = localStorage.getItem('adminToken');
+    if (adminToken) {
+      return <AdminDashboard onLogout={() => navigate('/admin/login')} />;
+    }
+    return (
+      <AdminLoginPage
+        onAdminLoginSuccess={() => navigate('/admin')}
+        onNavigateToApp={navigate}
+      />
+    );
+  }
+
+  // ----------------------------------------------------------
+  // STUDENT / PARENT ROUTES
+  // ----------------------------------------------------------
+  if (currentRoute === 'signup') {
+    return <SignupPage onSignupSuccess={handleLoginSuccess} onNavigate={navigate} />;
+  }
+
+  if (currentRoute === 'login' || !currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} onNavigate={navigate} />;
+  }
+
   // If in Hub view, show Hub Dashboard
   if (activeView === 'hub') {
     return (
@@ -577,107 +671,125 @@ export default function App() {
           setActiveView('hub');
           navigate('/hub');
         }}
+        onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+        sidebarOpen={sidebarOpen}
       />
 
-
       {/* =====================================================
-          CHAT MESSAGES / WELCOME SCREEN
+          CHAT BODY WITH SIDEBAR
           ===================================================== */}
+      <div className="chat-layout-wrapper">
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          sessions={sessions}
+          currentSessionId={sessionId}
+          onSelectSession={handleSelectSession}
+          onNewSession={handleNewConversation}
+          onDeleteSession={handleDeleteSessionClick}
+        />
 
-      <div className="chat-messages-container">
+        <div className="chat-main-area">
+          {/* =====================================================
+              CHAT MESSAGES / WELCOME SCREEN
+              ===================================================== */}
+          <div className="chat-messages-container">
 
-        {messages.length === 0 ? (
+            {messages.length === 0 ? (
 
-          <div className="welcome-card simplified-welcome-card">
+              <div className="welcome-card simplified-welcome-card">
 
-            <div className="welcome-icon">
-              🎓
-            </div>
+                <div className="welcome-icon">
+                  🎓
+                </div>
 
-            <h2 className="welcome-title">
-              Welcome to IIIT Kottayam
-            </h2>
-
-            <p className="welcome-desc" style={{ marginTop: '8px', color: '#94a3b8', fontSize: '0.92rem' }}>
-              How can I help you today? You can ask about B.Tech admissions, eligibility, fees, scholarships, or hostels in English, Malayalam, Hindi, Tamil, Telugu, or Kannada.
-            </p>
-
-          </div>
-
-        ) : (
-
-          /*
-           * -------------------------------------------------
-           * CHAT MESSAGE LIST
-           * -------------------------------------------------
-           */
-
-          messages.map(
-            (msg, index) => (
-
-              <ChatMessage
-                key={
-                  msg.message_id ||
-                  `${msg.sender}-${index}`
-                }
-
-                message={msg}
-
-                sessionId={
-                  sessionId
-                }
-
-                userMode={
-                  userMode
-                }
-
-              />
-
-            )
-          )
-
-        )}
-
-
-        {/* =================================================
-            LOADING INDICATOR
-            ================================================= */}
-
-        {loading && (
-
-          <div className="message-row bot">
-
-            <div className="msg-avatar">
-              🤖
-            </div>
-
-
-            <div className="message-bubble-wrapper">
-
-              <div className="message-bubble typing-indicator">
-
-                <span></span>
-                <span></span>
-                <span></span>
+                <h2 className="welcome-title">
+                  Welcome to IIIT Kottayam
+                </h2>
 
               </div>
 
-            </div>
+            ) : (
+
+              /*
+               * -------------------------------------------------
+               * CHAT MESSAGE LIST
+               * -------------------------------------------------
+               */
+
+              messages.map(
+                (msg, index) => (
+
+                  <ChatMessage
+                    key={
+                      msg.message_id ||
+                      `${msg.sender}-${index}`
+                    }
+
+                    message={msg}
+
+                    sessionId={
+                      sessionId
+                    }
+
+                    userMode={
+                      userMode
+                    }
+
+                  />
+
+                )
+              )
+
+            )}
+
+
+            {/* =================================================
+                LOADING INDICATOR
+                ================================================= */}
+
+            {loading && (
+
+              <div className="message-row bot">
+
+                <div className="msg-avatar">
+                  🤖
+                </div>
+
+
+                <div className="message-bubble-wrapper">
+
+                  <div className="message-bubble typing-indicator">
+
+                    <span></span>
+                    <span></span>
+                    <span></span>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {/* Scroll target */}
+
+            <div ref={messagesEndRef} />
 
           </div>
 
-        )}
 
+          {/* Chat Input & Voice Recorder */}
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            disabled={loading}
+            selectedLanguage={selectedLanguage}
+          />
 
-        {/* Scroll target */}
-
-        <div ref={messagesEndRef} />
-
+        </div>
       </div>
-
-
-      {/* Chat Input & Voice Recorder */}
-      <ChatInput onSendMessage={handleSendMessage} disabled={loading} />
 
       {/* Campus Map & Room Navigator Modal */}
       <CampusMapModal 
@@ -712,6 +824,17 @@ export default function App() {
         title="Confirm Logout"
         message="Are you sure you want to log out?"
       />
+
+      {/* Delete Conversation Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={Boolean(sessionToDelete)}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={handleConfirmDeleteSession}
+        title="Delete this conversation?"
+        message="Are you sure you want to delete this conversation from your history?"
+        confirmText="Delete"
+        icon={Trash2}
+      />
     </div>
   );
-}
+}

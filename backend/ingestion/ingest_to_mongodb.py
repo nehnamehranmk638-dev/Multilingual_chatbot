@@ -225,10 +225,12 @@ if __name__ == "__main__":
     )
 
     # IMPORTANT:
-    # Remove our old placeholder documents
+    # Remove our old placeholder documents, preserving campus navigation and faculty directories
     print("Removing old knowledge base...")
 
-    knowledge_base.delete_many({})
+    knowledge_base.delete_many({
+        "category": {"$nin": ["campus_navigation", "faculty_cabins"]}
+    })
 
     # Insert the real knowledge base
     print("Uploading to MongoDB Atlas...")

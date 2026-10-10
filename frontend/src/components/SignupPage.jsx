@@ -38,6 +38,9 @@ export default function SignupPage({ onSignupSuccess }) {
       localStorage.setItem('userRole', data.user.role);
       localStorage.setItem('userName', data.user.name);
       localStorage.setItem('userEmail', data.user.email);
+      if (data.user.user_id) {
+        localStorage.setItem('userId', data.user.user_id);
+      }
       localStorage.setItem('userMode', data.user.role);
       onSignupSuccess(data.user);
     } catch {

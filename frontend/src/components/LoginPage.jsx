@@ -32,6 +32,9 @@ export default function LoginPage({ onLoginSuccess }) {
       localStorage.setItem('userRole', data.user.role);
       localStorage.setItem('userName', data.user.name);
       localStorage.setItem('userEmail', data.user.email);
+      if (data.user.user_id) {
+        localStorage.setItem('userId', data.user.user_id);
+      }
       // Keep compatibility with existing userMode key the app already reads
       localStorage.setItem('userMode', data.user.role);
       onLoginSuccess(data.user);

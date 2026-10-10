@@ -1,5 +1,12 @@
 from django.urls import path
-from .views import chat, speech_to_text, submit_feedback
+from .views import (
+    chat,
+    speech_to_text,
+    synthesize,
+    submit_feedback,
+    list_sessions,
+    session_detail,
+)
 from .auth_views import signup, login, logout, me
 from .admin_views import (
     get_kb_docs,
@@ -18,7 +25,11 @@ from .admin_views import (
 urlpatterns = [
     path('chat/', chat, name='chat'),
     path('speech/', speech_to_text, name='speech'),
+    path('transcribe/', speech_to_text, name='transcribe'),
+    path('synthesize/', synthesize, name='synthesize'),
     path('feedback/', submit_feedback, name='feedback'),
+    path('sessions/', list_sessions, name='list_sessions'),
+    path('sessions/<str:session_id>/', session_detail, name='session_detail'),
 
     # Auth Routes
     path('auth/signup/', signup, name='auth_signup'),

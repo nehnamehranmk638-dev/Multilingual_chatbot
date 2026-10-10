@@ -8,7 +8,7 @@ from groq import Groq
 from decouple import config
 
 from .language import (
-    detect_language,
+    detect_and_translate,
     LANG_NAMES,
     translate_text,
 )
@@ -105,8 +105,7 @@ def handle_greeting(query):
     if "how are you" in text:
         return (
             "I'm doing great! 😊 "
-            "I'm ready to help you with IIIT Kottayam "
-            "admission-related questions."
+            "I'm ready to help you with your queries."
         )
 
     if (
@@ -122,10 +121,10 @@ def handle_greeting(query):
 
     return (
         "Hello! 👋 "
-        "I'm here to help you with IIIT Kottayam "
-        "admission-related questions. "
+        "I'm here to help you with your queries. "
         "How can I help you?"
     )
+
 
 
 # ============================================================
@@ -192,11 +191,59 @@ Standalone question:
     return response.choices[0].message.content.strip()
 
 
+def is_campus_navigation_query(query):
+    """
+    Fast detection for campus location, direction, cabin, and navigation queries.
+    Prevents location questions from hitting the general knowledge base RAG pipeline.
+    """
+    q = query.lower().strip()
+
+    # Room code pattern like AA101, BC304, AC308
+    if re.search(r'\b[ab][a-d]\d{2,4}\b', q):
+        return True
+
+    # Common location and direction intent phrases
+    nav_patterns = [
+        r'\bwhere\s+is\b',
+        r'\bwhere\'s\b',
+        r'\bwhere\s+can\s+i\s+(find|get|reach)\b',
+        r'\bhow\s+(can|do)\s+(i|we)\s+(reach|get\s+to|go\s+to|find)\b',
+        r'\bdirections?\s+to\b',
+        r'\blocation\s+of\b',
+        r'\bway\s+to\b',
+        r'\bpath\s+to\b',
+        r'\b(cabin|office)\s+(of|for|\b)',
+        r'\bwhich\s+(floor|block|building|room)\b',
+        r'\bhow\s+to\s+reach\b',
+        r'\bhow\s+to\s+get\s+to\b',
+        r'\bcampus\s+map\b',
+    ]
+    for pat in nav_patterns:
+        if re.search(pat, q):
+            return True
+
+    # Landmark mentions in combination with navigation verbs
+    landmarks = [
+        "mess", "milma", "scoops", "millet", "academic block", "admin block",
+        "old academic", "new academic", "hostel", "warden", "canteen", "library",
+        "health centre", "medical room", "atm", "gym"
+    ]
+    nav_verbs = ["where", "how", "reach", "route", "direction", "locate", "situated", "spot", "find", "map"]
+    if any(lm in q for lm in landmarks) and any(nv in q for nv in nav_verbs):
+        return True
+
+    return False
+
+
 # ============================================================
 # 4. CLASSIFY USER INTENT
 # ============================================================
 
 def classify_intent(query):
+
+    # Fast pattern match for campus location/direction queries
+    if is_campus_navigation_query(query):
+        return "campus_navigation"
 
     prompt = f"""
 Classify this user message for an IIIT Kottayam
@@ -232,7 +279,22 @@ Categories:
    - I got 12000 rank, can I get admission?
    - Can I get CSE with rank 5000?
 
-3. general
+3. campus_navigation
+
+   Any query asking about campus locations, directions, where a building/room/hostel/facility is, or where a faculty member's cabin or office is located.
+
+   Examples:
+   - Where is Dr. Dhakshayani's cabin?
+   - Where is the mess?
+   - How do I reach the hostel?
+   - Where is room BC304?
+   - Where is Dr. Ebin Deni Raj's cabin?
+   - Location of Old Academic Block
+   - Where is Milma?
+   - Where is the medical room?
+   - Directions to New Academic Block
+
+4. general
 
    Any actual IIIT Kottayam admission or academic
    question.
@@ -284,6 +346,7 @@ Category:
         "greeting",
         "general",
         "eligibility_check",
+        "campus_navigation",
     ]
 
     if intent not in allowed_intents:
@@ -583,12 +646,24 @@ def run_agent(
         }
 
     # --------------------------------------------------------
-    # Step 6: Campus Room & Navigation Check
+    # Step 6: Campus Navigation / Location Intent Check
     # --------------------------------------------------------
 
-    room_nav_result = resolve_room_location(standalone_query)
-    if room_nav_result:
-        return room_nav_result
+    if intent == "campus_navigation":
+        # Check if the query is a strict room number (e.g. BC304, AA101)
+        room_nav_result = resolve_room_location(standalone_query)
+        if room_nav_result:
+            return room_nav_result
+
+        return {
+            "answer": (
+                "For campus locations, walking directions, and faculty cabin details, please check the "
+                "**Campus Map & Directory 🗺️** — you can open it anytime using the **Compass icon (Campus Map)** "
+                "in the top navigation bar or via the **Campus Map & Room Finder** card on your Home Dashboard."
+            ),
+            "sources": ["IIIT Kottayam Official Campus Map & Directory"],
+            "type": "campus_navigation",
+        }
 
     # --------------------------------------------------------
     # Step 7: General RAG
@@ -632,12 +707,14 @@ def process_multilingual_query(
         conversation_history = []
 
     # --------------------------------------------------------
-    # Step 1: Detect language
+    # Step 1+2: Detect language AND translate in one LLM call
     # --------------------------------------------------------
 
-    language_code = detect_language(
-        user_message
-    )
+    detection = detect_and_translate(user_message)
+
+    language_code = detection["language_code"]
+    is_romanized = detection["is_romanized"]
+    english_query = detection["english_translation"]
 
     language_name = LANG_NAMES.get(
         language_code,
@@ -649,25 +726,9 @@ def process_multilingual_query(
     print("Original:", user_message)
     print("Detected:", language_code)
     print("Language:", language_name)
+    print("Romanized:", is_romanized)
+    print("English query:", english_query)
     print("========================================")
-
-    # --------------------------------------------------------
-    # Step 2: Translate user query to English
-    # --------------------------------------------------------
-
-    if language_code == "en":
-
-        english_query = user_message
-
-    else:
-
-        english_query = translate_text(
-            user_message,
-            language_name,
-            "English"
-        )
-
-    print("Translated query:", english_query)
 
     # --------------------------------------------------------
     # Step 3: Process through agent

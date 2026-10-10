@@ -143,4 +143,5 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
     'x-admin-password',
+    'x-user-id',
 ]

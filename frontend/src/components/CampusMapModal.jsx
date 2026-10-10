@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { 
   X, MapPin, Search, Navigation, Building2, Coffee, 
   HeartPulse, UtensilsCrossed, Info, Layers, Compass, ArrowRight,
-  GraduationCap, UserCheck
+  GraduationCap, UserCheck, ChevronDown, ChevronUp, Mail, Building
 } from 'lucide-react';
 
 export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'academic', 'food', 'facilities', 'faculty'
+  const [expandedCardId, setExpandedCardId] = useState(null);
 
   if (!isOpen) return null;
 
@@ -412,17 +413,14 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
       <div className="campus-modal-container">
         {/* Modal Header */}
         <div className="campus-modal-header">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
+          <div className="campus-header-left">
+            <div className="campus-header-icon">
               <Compass size={24} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="campus-header-title">
                 IIIT Kottayam Campus Map &amp; Directory
               </h2>
-              <p className="text-xs text-slate-400">
-                Interactive Block Navigation, Room Decoder &amp; Official Faculty Directory
-              </p>
             </div>
           </div>
           <button 
@@ -437,7 +435,7 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
         {/* Search & Room Decoder Bar */}
         <div className="campus-search-section">
           <div className="search-input-box">
-            <Search size={18} className="text-slate-400" />
+            <Search size={18} className="search-icon" />
             <input 
               type="text"
               placeholder="Search faculty (Dr. Ebin, Dr. Della), room (BC304, AA101), or place (Scoops, Milma)..."
@@ -448,7 +446,7 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="text-xs text-slate-400 hover:text-white px-2"
+                className="search-clear-btn"
               >
                 Clear
               </button>
@@ -457,34 +455,28 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
 
           {/* Quick Room Decoding Card */}
           {roomLookup && (
-            <div className={`room-decoder-banner ${roomLookup.type === 'invalid' ? 'bg-red-500/20 border-red-500/40 text-red-300' : ''}`}>
+            <div className={`room-decoder-banner ${roomLookup.type === 'invalid' ? 'invalid' : ''}`}>
               {roomLookup.type === 'invalid' ? (
                 <div>
-                  <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+                  <div className="room-decoder-header error">
                     ⚠️ <span>Invalid Room Number:</span>
                   </div>
-                  <div className="mt-1 text-xs text-red-200">
+                  <div className="room-decoder-detail error-desc">
                     {roomLookup.error}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div className="flex items-center gap-2 text-indigo-300 font-semibold text-sm">
+                  <div className="room-decoder-header">
                     <MapPin size={16} />
                     <span>Room {roomLookup.roomCode} Found:</span>
                   </div>
-                  <div className="mt-1 text-xs text-slate-200">
+                  <div className="room-decoder-detail">
                     🏢 <strong>{roomLookup.buildingName}</strong> &bull; 📍 <strong>{roomLookup.floor}</strong>
                   </div>
-                  <button
-                    onClick={() => {
-                      onAskAboutPlace(`Where is room ${roomLookup.roomCode} located?`);
-                      onClose();
-                    }}
-                    className="ask-ai-quick-btn mt-2"
-                  >
-                    Ask AI for walking directions to {roomLookup.roomCode} <ArrowRight size={13} />
-                  </button>
+                  <div className="room-decoder-directions">
+                    🧭 <strong>Walking Route:</strong> Enter {roomLookup.buildingName.includes('Block A') ? 'Old Academic (Block A)' : 'New Academic (Block B)'} &bull; Proceed to {roomLookup.floor} &bull; Room {roomLookup.roomCode}
+                  </div>
                 </div>
               )}
             </div>
@@ -496,11 +488,11 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
           {/* Left Column: Visual Campus Layout & Flow */}
           <div className="campus-blueprint-card">
             <div className="blueprint-header">
-              <span className="text-xs font-semibold text-slate-300 flex items-center gap-2">
-                <Layers size={14} className="text-blue-400" />
+              <span className="blueprint-title">
+                <Layers size={14} style={{ color: '#60a5fa' }} />
                 CAMPUS ARCHITECTURAL SCHEME
               </span>
-              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <span className="blueprint-badge">
                 Ground &amp; Basement Mapping
               </span>
             </div>
@@ -535,42 +527,32 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
                   {/* Old Academic Block */}
                   <div 
                     className={`campus-block-node academic-node ${selectedLocation?.id === 'old-academic' || roomLookup?.buildingId === 'old-academic' ? 'active-node' : ''}`}
-                    onClick={() => setSelectedLocation(campusLocations.find(l => l.id === 'old-academic'))}
+                    onClick={() => {
+                      const loc = campusLocations.find(l => l.id === 'old-academic');
+                      setSelectedLocation(loc);
+                      setExpandedCardId('old-academic');
+                    }}
                   >
                     <div className="node-icon bg-sky-500/20 text-sky-400">🏫</div>
                     <div className="node-info">
                       <h4>Old Academic (Block A)</h4>
-                      <span className="text-[11px] text-sky-300 font-mono">Rooms: AA101, AC301...</span>
-                      <span className="text-[10px] text-slate-400">AA = Ground Floor</span>
+                      <span>Classrooms &amp; Faculty Cabins</span>
                     </div>
                   </div>
 
                   {/* New Academic Block */}
                   <div 
                     className={`campus-block-node academic-node ${selectedLocation?.id === 'new-academic' || roomLookup?.buildingId === 'new-academic' ? 'active-node' : ''}`}
-                    onClick={() => setSelectedLocation(campusLocations.find(l => l.id === 'new-academic'))}
+                    onClick={() => {
+                      const loc = campusLocations.find(l => l.id === 'new-academic');
+                      setSelectedLocation(loc);
+                      setExpandedCardId('new-academic');
+                    }}
                   >
                     <div className="node-icon bg-indigo-500/20 text-indigo-400">🏢</div>
                     <div className="node-info">
                       <h4>New Academic (Block B)</h4>
-                      <span className="text-[11px] text-indigo-300 font-mono">Rooms: BA101, BC304...</span>
-                      <span className="text-[10px] text-slate-400">BA = Basement &bull; BB = Ground</span>
-                    </div>
-
-                    {/* Ground floor amenities */}
-                    <div className="mini-amenities-bar">
-                      <span 
-                        onClick={(e) => { e.stopPropagation(); setSelectedLocation(campusLocations.find(l => l.id === 'scoops')); }}
-                        className="mini-amenity bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                      >
-                        🍦 Scoops
-                      </span>
-                      <span 
-                        onClick={(e) => { e.stopPropagation(); setSelectedLocation(campusLocations.find(l => l.id === 'medical-room')); }}
-                        className="mini-amenity bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                      >
-                        🏥 Medical
-                      </span>
+                      <span>Classrooms &amp; Laboratories</span>
                     </div>
                   </div>
                 </div>
@@ -607,12 +589,12 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
 
             {/* Quick Floor Rule Card */}
             <div className="rule-cheatsheet">
-              <div className="font-semibold text-slate-200 text-xs mb-1">
+              <div className="rule-cheatsheet-title">
                 💡 Room &amp; Floor Decoding:
               </div>
-              <ul className="text-[11px] text-slate-400 space-y-1">
-                <li>&bull; <strong className="text-white">Old Academic (A):</strong> <code>AA1xx</code> = Ground Floor, <code>AB2xx</code> = 1st Floor, <code>AC3xx</code> = 2nd Floor.</li>
-                <li>&bull; <strong className="text-white">New Academic (B):</strong> <code>BA1xx</code> = Basement, <code>BB2xx</code> = Ground, <code>BC3xx</code> = 1st Floor, <code>BD4xx</code> = 2nd Floor.</li>
+              <ul className="rule-cheatsheet-list">
+                <li>&bull; <strong style={{ color: '#ffffff' }}>Old Academic (A):</strong> <code>AA1xx</code> = Ground Floor, <code>AB2xx</code> = 1st Floor, <code>AC3xx</code> = 2nd Floor.</li>
+                <li>&bull; <strong style={{ color: '#ffffff' }}>New Academic (B):</strong> <code>BA1xx</code> = Basement, <code>BB2xx</code> = Ground, <code>BC3xx</code> = 1st Floor, <code>BD4xx</code> = 2nd Floor.</li>
               </ul>
             </div>
           </div>
@@ -657,91 +639,127 @@ export default function CampusMapModal({ isOpen, onClose, onAskAboutPlace }) {
             <div className="places-scrollable">
               {/* Show Faculty Tab */}
               {activeTab === 'faculty' ? (
-                filteredFaculties.map((fac, idx) => (
-                  <div key={idx} className="place-card">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="place-icon-box text-blue-400">
-                          <GraduationCap size={18} />
+                filteredFaculties.map((fac, idx) => {
+                  const cardKey = `faculty-${idx}`;
+                  const isExpanded = expandedCardId === cardKey;
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`place-card ${isExpanded ? 'selected expanded' : ''}`}
+                      onClick={() => setExpandedCardId(prev => prev === cardKey ? null : cardKey)}
+                    >
+                      <div className="place-card-top">
+                        <div className="place-card-main">
+                          <div className="place-icon-box faculty">
+                            <GraduationCap size={18} />
+                          </div>
+                          <div>
+                            <h3 className="place-title">{fac.name}</h3>
+                            <span className="place-role">{fac.role}</span>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-sm font-semibold text-white">{fac.name}</h3>
-                          <span className="text-[11px] text-indigo-300 font-medium">{fac.role}</span>
+                        <div className="place-top-right">
+                          <span className="place-tag">{fac.dept.split(' ')[0]}</span>
+                          <span className="accordion-toggle-btn">
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </span>
                         </div>
                       </div>
-                      <span className="place-tag">{fac.dept.split(' ')[0]}</span>
-                    </div>
 
-                    <div className="mt-2.5 p-2 bg-slate-900/60 rounded-lg border border-slate-700/50">
-                      <div className="text-xs text-slate-300">
-                        📍 <strong>Cabin:</strong> <span className="text-emerald-400 font-mono font-bold">{fac.cabin}</span>
+                      {/* Always show key cabin highlight */}
+                      <div className="place-cabin-card">
+                        <div className="place-cabin-text">
+                          📍 <strong>Cabin / Office:</strong> <span className="place-cabin-code">{fac.cabin}</span>
+                        </div>
+                        <div className="place-cabin-block">
+                          🏢 {fac.block}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        🏢 {fac.block}
-                      </div>
-                    </div>
 
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        onClick={() => {
-                          onAskAboutPlace(`Where is ${fac.name}'s cabin located?`);
-                          onClose();
-                        }}
-                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
-                      >
-                        Ask AI for directions <ArrowRight size={12} />
-                      </button>
+                      {/* Expanded Full Details Inline */}
+                      {isExpanded && (
+                        <div className="place-expanded-details">
+                          <div className="detail-row">
+                            <span className="detail-label">Department:</span>
+                            <span className="detail-value">{fac.dept}</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="detail-label">Designation:</span>
+                            <span className="detail-value">{fac.role}</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="detail-label">Official Portal:</span>
+                            <span className="detail-value">iiitkottayam.ac.in/#!/faculty</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="detail-label">Cabin Location:</span>
+                            <span className="detail-value text-emerald-300">{fac.cabin} ({fac.block})</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 filteredLocations.map((loc) => {
                   const isSelected = selectedLocation?.id === loc.id;
+                  const isExpanded = expandedCardId === loc.id || isSelected;
                   return (
                     <div 
                       key={loc.id}
-                      className={`place-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => setSelectedLocation(loc)}
+                      className={`place-card ${isExpanded ? 'selected expanded' : ''}`}
+                      onClick={() => {
+                        setSelectedLocation(loc);
+                        setExpandedCardId(prev => prev === loc.id ? null : loc.id);
+                      }}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
+                      <div className="place-card-top">
+                        <div className="place-card-main">
                           <div className="place-icon-box">
                             {loc.icon}
                           </div>
                           <div>
-                            <h3 className="text-sm font-semibold text-white">{loc.name}</h3>
-                            <span className="text-[11px] text-slate-400">{loc.locationDetail}</span>
+                            <h3 className="place-title">{loc.name}</h3>
+                            <span className="place-detail-subtitle">{loc.locationDetail}</span>
                           </div>
                         </div>
-                        <span className="place-tag">{loc.tag}</span>
+                        <div className="place-top-right">
+                          <span className="place-tag">{loc.tag}</span>
+                          <span className="accordion-toggle-btn">
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </span>
+                        </div>
                       </div>
 
-                      <p className="mt-2 text-xs text-slate-300 leading-relaxed">
+                      <p className="place-desc">
                         {loc.description}
                       </p>
 
-                      {loc.floorScheme && (
-                        <div className="mt-2 pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-1 text-[10px]">
+                      {/* Floor scheme / detailed breakdown */}
+                      {loc.floorScheme && isExpanded && (
+                        <div className="floor-scheme-grid">
                           {loc.floorScheme.map((f, i) => (
-                            <div key={i} className="text-slate-400">
-                              <span className="text-indigo-300 font-mono font-bold">{f.code}:</span> {f.floor}
+                            <div key={i} className="floor-scheme-item">
+                              <span className="floor-scheme-code">{f.code}:</span>
+                              <span className="floor-scheme-name">{f.floor}</span>
                             </div>
                           ))}
                         </div>
                       )}
 
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAskAboutPlace(`Where is ${loc.name} and what are its details?`);
-                            onClose();
-                          }}
-                          className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
-                        >
-                          Ask AI Assistant <ArrowRight size={12} />
-                        </button>
-                      </div>
+                      {/* Expanded In-Place Metadata */}
+                      {isExpanded && (
+                        <div className="place-expanded-details">
+                          <div className="detail-row">
+                            <span className="detail-label">Campus Zone:</span>
+                            <span className="detail-value">{loc.locationDetail}</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="detail-label">Category:</span>
+                            <span className="detail-value text-capitalize">{loc.tag} ({loc.category})</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })

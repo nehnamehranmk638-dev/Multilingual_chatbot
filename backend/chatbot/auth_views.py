@@ -62,6 +62,7 @@ def signup(request):
         "message": "Account created successfully",
         "token": token,
         "user": {
+            "user_id": str(user["_id"]),
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
@@ -93,6 +94,7 @@ def login(request):
     return Response({
         "token": token,
         "user": {
+            "user_id": user["user_id"],
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
@@ -124,6 +126,7 @@ def me(request):
         return Response({"authenticated": False}, status=401)
     return Response({
         "authenticated": True,
+        "user_id": user.get("user_id"),
         "name": user["name"],
         "email": user["email"],
         "role": user["role"],

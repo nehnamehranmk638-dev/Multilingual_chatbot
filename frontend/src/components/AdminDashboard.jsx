@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, X } from 'lucide-react';
 import LogoutConfirmModal from './LogoutConfirmModal';
+
 
 const API_BASE = 'http://127.0.0.1:8000/api/admin';
 
@@ -15,8 +17,46 @@ export default function AdminDashboard({ onLogout }) {
   // KB State
   const [kbDocs, setKbDocs] = useState([]);
   const [kbVerifiedFilter, setKbVerifiedFilter] = useState('all');
+  const [kbCategoryFilter, setKbCategoryFilter] = useState('all');
+  const [kbSearchInput, setKbSearchInput] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [kbModalOpen, setKbModalOpen] = useState(false);
   const [currentDoc, setCurrentDoc] = useState({ id: null, title: '', content: '', category: '', language: 'en', source: '', verified: false });
+
+  // Debounce search input by 200ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(kbSearchInput);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [kbSearchInput]);
+
+  // Extract unique categories from loaded documents
+  const categories = useMemo(() => {
+    return Array.from(new Set(kbDocs.map((d) => d.category).filter(Boolean))).sort();
+  }, [kbDocs]);
+
+  // Client-side combined filter: text search + category filter
+  const filteredKbDocs = useMemo(() => {
+    let list = kbDocs;
+
+    if (kbCategoryFilter !== 'all') {
+      list = list.filter((doc) => (doc.category || '').toLowerCase() === kbCategoryFilter.toLowerCase());
+    }
+
+    if (debouncedSearchTerm.trim()) {
+      const term = debouncedSearchTerm.toLowerCase().trim();
+      list = list.filter((doc) => {
+        const titleMatch = (doc.title || '').toLowerCase().includes(term);
+        const contentMatch = (doc.content || '').toLowerCase().includes(term);
+        const categoryMatch = (doc.category || '').toLowerCase().includes(term);
+        return titleMatch || contentMatch || categoryMatch;
+      });
+    }
+
+    return list;
+  }, [kbDocs, debouncedSearchTerm, kbCategoryFilter]);
+
 
   // Escalations State
   const [escalations, setEscalations] = useState([]);
@@ -339,21 +379,87 @@ export default function AdminDashboard({ onLogout }) {
       {/* Tab 2: Knowledge Base */}
       {activeTab === 'kb' && (
         <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>Knowledge Base Documents</h2>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>Knowledge Base Documents</h2>
+              <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
+                Showing {filteredKbDocs.length} of {kbDocs.length} documents
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Search input with live debounced filtering */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Search size={15} style={{ position: 'absolute', left: '10px', color: '#94a3b8', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  placeholder="Search title or content..."
+                  value={kbSearchInput}
+                  onChange={(e) => setKbSearchInput(e.target.value)}
+                  style={{
+                    padding: '8px 30px 8px 32px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.85rem',
+                    width: '230px',
+                    outline: 'none',
+                    transition: 'border-color 0.15s ease',
+                  }}
+                  onFocus={(e) => { e.target.style.borderColor = '#1a73e8'; }}
+                  onBlur={(e) => { e.target.style.borderColor = '#cbd5e1'; }}
+                />
+                {kbSearchInput && (
+                  <button
+                    type="button"
+                    onClick={() => setKbSearchInput('')}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#94a3b8',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title="Clear search"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Category dropdown filter */}
+              {categories.length > 0 && (
+                <select
+                  value={kbCategoryFilter}
+                  onChange={(e) => setKbCategoryFilter(e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+                  title="Filter by category"
+                >
+                  <option value="all">All Categories</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Verification status filter */}
               <select
                 value={kbVerifiedFilter}
                 onChange={(e) => {
                   setKbVerifiedFilter(e.target.value);
                   loadKb(e.target.value);
                 }}
-                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+                title="Filter by status"
               >
                 <option value="all">All Documents</option>
                 <option value="false">Unverified (Pending Review)</option>
                 <option value="true">Verified (Approved)</option>
               </select>
+
+              {/* Add document button */}
               <button
                 onClick={() => {
                   setCurrentDoc({ id: null, title: '', content: '', category: '', language: 'en', source: '', verified: false });
@@ -377,39 +483,50 @@ export default function AdminDashboard({ onLogout }) {
               </tr>
             </thead>
             <tbody>
-              {kbDocs.map((doc) => (
-                <tr key={doc._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{doc.title}</td>
-                  <td style={{ padding: '10px 12px', color: '#64748b' }}>{doc.category || '—'}</td>
-                  <td style={{ padding: '10px 12px' }}>{doc.language || 'en'}</td>
-                  <td style={{ padding: '10px 12px' }}>
-                    <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, background: doc.verified ? '#dcfce7' : '#fef9c3', color: doc.verified ? '#166534' : '#854d0e' }}>
-                      {doc.verified ? 'Verified' : 'Unverified'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => {
-                        setCurrentDoc({ id: doc._id, ...doc });
-                        setKbModalOpen(true);
-                      }}
-                      style={{ background: '#e2e8f0', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '6px' }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteKb(doc._id)}
-                      style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      Delete
-                    </button>
+              {filteredKbDocs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>
+                    {debouncedSearchTerm.trim()
+                      ? `No documents matching "${debouncedSearchTerm}"`
+                      : 'No documents found.'}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredKbDocs.map((doc) => (
+                  <tr key={doc._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{doc.title}</td>
+                    <td style={{ padding: '10px 12px', color: '#64748b' }}>{doc.category || '—'}</td>
+                    <td style={{ padding: '10px 12px' }}>{doc.language || 'en'}</td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, background: doc.verified ? '#dcfce7' : '#fef9c3', color: doc.verified ? '#166534' : '#854d0e' }}>
+                        {doc.verified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => {
+                          setCurrentDoc({ id: doc._id, ...doc });
+                          setKbModalOpen(true);
+                        }}
+                        style={{ background: '#e2e8f0', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '6px' }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteKb(doc._id)}
+                        style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       )}
+
 
       {/* Tab 3: Escalations */}
       {activeTab === 'escalations' && (

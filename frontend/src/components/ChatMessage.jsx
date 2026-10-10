@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Volume2, VolumeX, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-react';
 import FeedbackDialog from './FeedbackDialog';
+import { synthesizeSpeech, stopSpeech } from '../api';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
 
 // Helper: Check if response indicates information is not available in knowledge base
 const isUnavailableAnswer = (text) => {
@@ -33,43 +36,50 @@ export default function ChatMessage({ message, sessionId }) {
   const [showDialog,       setShowDialog]       = useState(null);   // 'response_helpful' | 'response_not_helpful'
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const handleSpeak = () => {
-    if (!('speechSynthesis' in window)) {
-      alert('Speech synthesis is not supported in your browser.');
-      return;
-    }
-
+  const handleSpeak = async () => {
     if (speaking) {
-      window.speechSynthesis.cancel();
+      stopSpeech();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setSpeaking(false);
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(message.content);
-
-    // Map language code to BCP-47 language tag
-    const langMap = {
-      hi: 'hi-IN',
-      ml: 'ml-IN',
-      ta: 'ta-IN',
-      te: 'te-IN',
-      kn: 'kn-IN',
-      en: 'en-IN'
-    };
-
-    if (message.language && langMap[message.language]) {
-      utterance.lang = langMap[message.language];
-    } else {
-      utterance.lang = 'en-US';
-    }
-
-    utterance.onend  = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
-
     setSpeaking(true);
-    window.speechSynthesis.speak(utterance);
+
+    try {
+      const lang = message.detected_code || message.language || 'en';
+      const audio = await synthesizeSpeech(message.content, lang);
+      if (audio) {
+        audio.onended = () => setSpeaking(false);
+        audio.onerror = () => setSpeaking(false);
+      } else {
+        setSpeaking(false);
+      }
+    } catch (err) {
+      console.error('Backend synthesis error, falling back to browser synthesis:', err);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(message.content);
+        const langMap = {
+          hi: 'hi-IN',
+          ml: 'ml-IN',
+          ta: 'ta-IN',
+          te: 'te-IN',
+          kn: 'kn-IN',
+          en: 'en-IN'
+        };
+        utterance.lang = (message.language && langMap[message.language]) ? langMap[message.language] : 'en-US';
+        utterance.onend  = () => setSpeaking(false);
+        utterance.onerror = () => setSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setSpeaking(false);
+      }
+    }
   };
+
 
   // ── Thumbs click handlers ────────────────────────────────────
   const handleThumbUp = () => {
@@ -103,7 +113,19 @@ export default function ChatMessage({ message, sessionId }) {
 
       <div className="message-bubble-wrapper">
         <div className="message-bubble">
-          {message.content}
+          {isBot ? (
+            <ReactMarkdown
+              allowedElements={['p', 'strong', 'b', 'em', 'i', 'br']}
+              unwrapDisallowed
+              components={{
+                p: ({ node, ...props }) => <span {...props} />
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          ) : (
+            message.content
+          )}
 
           {/* Sources citations (only display when an actual answer was retrieved) */}
           {message.sources && message.sources.length > 0 && !isUnavailableAnswer(message.content) && (

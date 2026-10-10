@@ -32,8 +32,8 @@ sample_docs = [
 ]
 
 
-# Remove previous test documents
-knowledge_base.delete_many({})
+# Remove previous test documents (safely scoped)
+knowledge_base.delete_many({"category": {"$in": ["fees", "eligibility"]}})
 
 
 # Generate embeddings
