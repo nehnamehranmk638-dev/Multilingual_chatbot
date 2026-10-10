@@ -115,17 +115,54 @@ def resolve_escalation(request, esc_id):
     except:
         return Response({"error": "Invalid escalation ID"}, status=400)
         
-    response_text = request.data.get("response", "")
+    response_text = request.data.get("response", "") or request.data.get("resolution_notes", "")
+    add_to_kb = request.data.get("add_to_kb", False)
+    category = request.data.get("category", "general")
+    title = request.data.get("title", "")
+    source = request.data.get("source", "Admin Escalation Resolution")
     
-    result = escalations.update_one(
-        {"_id": obj_id},
-        {"$set": {"status": "resolved", "response": response_text}}
-    )
-    
-    if result.matched_count == 0:
+    # 1. Update escalation record
+    esc_doc = escalations.find_one({"_id": obj_id})
+    if not esc_doc:
         return Response({"error": "Escalation not found"}, status=404)
+
+    update_fields = {
+        "status": "resolved",
+        "response": response_text,
+        "resolved_at": datetime.utcnow()
+    }
+
+    # 2. Optionally insert into Knowledge Base
+    kb_id = None
+    if add_to_kb and response_text.strip():
+        kb_title = title.strip() or f"Resolution: {esc_doc.get('query', '')[:60]}"
+        content_to_index = f"Question: {esc_doc.get('query', '')}\nAnswer: {response_text.strip()}"
         
-    return Response({"success": True})
+        # Compute MiniLM embedding for retrieval
+        embedding = embedding_model.encode(content_to_index).tolist()
+        
+        kb_doc = {
+            "title": kb_title,
+            "content": content_to_index,
+            "category": category.strip() or "general",
+            "language": esc_doc.get("language", "en"),
+            "source": source.strip() or "Admin Escalation Resolution",
+            "verified": True,
+            "embedding": embedding,
+            "created_at": datetime.utcnow(),
+            "resolved_from_escalation": str(obj_id)
+        }
+        
+        kb_res = knowledge_base.insert_one(kb_doc)
+        kb_id = str(kb_res.inserted_id)
+        update_fields["kb_id"] = kb_id
+
+    escalations.update_one(
+        {"_id": obj_id},
+        {"$set": update_fields}
+    )
+        
+    return Response({"success": True, "kb_id": kb_id})
 
 @api_view(['GET'])
 @require_admin

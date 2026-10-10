@@ -23,6 +23,9 @@ export default function AdminDashboard({ onLogout }) {
   const [escModalOpen, setEscModalOpen] = useState(false);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [addToKb, setAddToKb] = useState(true);
+  const [kbCategory, setKbCategory] = useState('general');
+  const [kbTitle, setKbTitle] = useState('');
 
   // Feedback State
   const [feedbackList, setFeedbackList] = useState([]);
@@ -170,12 +173,23 @@ export default function AdminDashboard({ onLogout }) {
       const res = await fetch(`${API_BASE}/escalations/${selectedEscalation._id}/resolve/`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({ resolution_notes: resolutionNotes }),
+        body: JSON.stringify({
+          resolution_notes: resolutionNotes,
+          add_to_kb: addToKb,
+          category: kbCategory,
+          title: kbTitle,
+        }),
       });
       if (!res.ok) throw new Error('Failed to resolve escalation');
+      const data = await res.json();
+      if (data.kb_id) {
+        alert('Escalation resolved and successfully indexed into Knowledge Base! Future chatbot queries can now answer this.');
+      }
       setEscModalOpen(false);
       setResolutionNotes('');
+      setKbTitle('');
       loadEscalations();
+      loadKb();
     } catch (err) {
       alert(err.message);
     }
@@ -532,26 +546,90 @@ export default function AdminDashboard({ onLogout }) {
       {/* Modal: Resolve Escalation */}
       {escModalOpen && selectedEscalation && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '450px' }}>
-            <h3 style={{ margin: '0 0 16px 0' }}>Resolve Escalation</h3>
-            <p style={{ fontSize: '0.9rem', color: '#475569', marginBottom: '12px' }}>
-              <strong>User Query:</strong> {selectedEscalation.query}
-            </p>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ margin: '0 0 14px 0', fontSize: '1.2rem', color: '#1e293b' }}>Resolve Escalation</h3>
+            
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Unanswered User Question
+              </div>
+              <div style={{ fontSize: '0.92rem', color: '#0f172a', fontWeight: 600 }}>
+                "{selectedEscalation.query}"
+              </div>
+            </div>
+
             <form onSubmit={handleResolveEscalation} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <textarea
-                placeholder="Resolution notes / action taken..."
-                rows={3}
-                value={resolutionNotes}
-                onChange={(e) => setResolutionNotes(e.target.value)}
-                required
-                style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-              />
+              <div>
+                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                  Official Resolution / Answer:
+                </label>
+                <textarea
+                  placeholder="Type the official answer here (e.g., Dr. Victor Paul's cabin is located in AC 317, Second Floor, Old Academic Block)..."
+                  rows={4}
+                  value={resolutionNotes}
+                  onChange={(e) => setResolutionNotes(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.88rem', fontFamily: 'inherit', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Add to Knowledge Base Checkbox */}
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', fontWeight: 600, color: '#166534', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={addToKb}
+                    onChange={(e) => setAddToKb(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: '#16a34a' }}
+                  />
+                  <span>📚 Add this answer to Knowledge Base</span>
+                </label>
+                <p style={{ margin: '4px 0 0 24px', fontSize: '0.75rem', color: '#15803d' }}>
+                  Automatically generates 384-dim MiniLM embeddings so the chatbot can answer future questions on this topic!
+                </p>
+
+                {addToKb && (
+                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '24px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '2px' }}>
+                        Document Category:
+                      </label>
+                      <select
+                        value={kbCategory}
+                        onChange={(e) => setKbCategory(e.target.value)}
+                        style={{ width: '100%', padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }}
+                      >
+                        <option value="general">General / Campus Information</option>
+                        <option value="faculty">Faculty & Staff Directory</option>
+                        <option value="fees">Fee Structure & Payments</option>
+                        <option value="hostel">Hostels & Accommodation</option>
+                        <option value="admission_process">Admissions & Eligibility</option>
+                        <option value="contact">Contact & Helpline</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '2px' }}>
+                        Document Title (Optional):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={`e.g. Faculty Location - ${selectedEscalation.query.slice(0, 30)}`}
+                        value={kbTitle}
+                        onChange={(e) => setKbTitle(e.target.value)}
+                        style={{ width: '100%', padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" onClick={() => setEscModalOpen(false)} style={{ padding: '8px 16px', background: '#e2e8f0', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                <button type="button" onClick={() => setEscModalOpen(false)} style={{ padding: '8px 16px', background: '#e2e8f0', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500 }}>
                   Cancel
                 </button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
-                  Mark as Resolved
+                <button type="submit" style={{ padding: '8px 18px', background: addToKb ? '#16a34a' : '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
+                  {addToKb ? '✓ Resolve & Add to KB' : 'Mark as Resolved'}
                 </button>
               </div>
             </form>
