@@ -135,41 +135,56 @@ def run_import(candidates: list[dict], model, dry_run: bool = False):
 
     print(f"\nProcessing documents...")
 
+    # Pre-fetch existing documents to minimize MongoDB round-trips
+    print("  Indexing existing documents from MongoDB...")
+    existing_list = list(knowledge_base.find({}, {
+        "source": 1,
+        "content_fingerprint": 1,
+        "title": 1,
+        "verified": 1,
+        "created_at": 1
+    }))
+
+    existing_by_fp = {
+        (doc.get("source"), doc.get("content_fingerprint")): doc
+        for doc in existing_list
+        if "source" in doc and "content_fingerprint" in doc
+    }
+    existing_by_source_title = {
+        (doc.get("source"), doc.get("title")): doc
+        for doc in existing_list
+        if "source" in doc and "title" in doc
+    }
+    print(f"  Found {len(existing_list)} existing documents in KB.")
+
+    to_insert = []
+    now = datetime.now(timezone.utc)
+
     for doc, embedding in zip(valid_candidates, embeddings):
         source = doc["source"].strip()
         content = doc["content"].strip()
         fingerprint = _content_fingerprint(content)
 
         # Check for exact duplicate in MongoDB
-        existing = find_existing_doc(source, fingerprint)
-
-        if existing:
-            # Exact duplicate — skip
-            print(f"  [SKIP-DUPE] '{doc['title'][:50]}' already exists with same content.")
+        if (source, fingerprint) in existing_by_fp:
             stats["skipped_exact_duplicate"] += 1
             continue
 
-        # Check if a document with same source URL exists at all (update scenario)
-        existing_by_source = knowledge_base.find_one({"source": source, "title": doc["title"]})
+        existing_by_source = existing_by_source_title.get((source, doc["title"]))
 
-        now = datetime.now(timezone.utc)
-
-        # Build the document to upsert
         kb_doc = {
             "title": doc["title"].strip(),
             "content": content,
             "category": doc.get("category", "general"),
             "language": doc.get("language", "en"),
             "source": source,
-            "verified": bool(doc.get("verified", False)),  # NEVER force True
+            "verified": bool(doc.get("verified", False)),
             "embedding": embedding,
             "content_fingerprint": fingerprint,
             "last_scraped_at": now,
         }
 
         if dry_run:
-            action = "UPDATE" if existing_by_source else "INSERT"
-            print(f"  [DRY-RUN {action}] '{kb_doc['title'][:60]}' | verified={kb_doc['verified']} | source={source[:60]}")
             if existing_by_source:
                 stats["updated"] += 1
             else:
@@ -180,11 +195,7 @@ def run_import(candidates: list[dict], model, dry_run: bool = False):
             # Update in place — preserve _id and existing verified status if already True
             existing_verified = existing_by_source.get("verified", False)
             if existing_verified and not kb_doc["verified"]:
-                # Human had already verified this — keep their verification
                 kb_doc["verified"] = True
-                print(f"  [UPDATE] '{kb_doc['title'][:50]}' — preserving existing verified=True")
-            else:
-                print(f"  [UPDATE] '{kb_doc['title'][:50]}' | verified={kb_doc['verified']}")
 
             kb_doc["created_at"] = existing_by_source.get("created_at", now)
             knowledge_base.update_one(
@@ -193,11 +204,16 @@ def run_import(candidates: list[dict], model, dry_run: bool = False):
             )
             stats["updated"] += 1
         else:
-            # Fresh insert
             kb_doc["created_at"] = now
-            print(f"  [INSERT] '{kb_doc['title'][:60]}' | verified={kb_doc['verified']}")
-            knowledge_base.insert_one(kb_doc)
-            stats["inserted"] += 1
+            to_insert.append(kb_doc)
+            # update local index to prevent inserting duplicate within same batch
+            existing_by_fp[(source, fingerprint)] = kb_doc
+            existing_by_source_title[(source, kb_doc["title"])] = kb_doc
+
+    if to_insert and not dry_run:
+        print(f"  Bulk inserting {len(to_insert)} new documents into MongoDB...")
+        knowledge_base.insert_many(to_insert)
+        stats["inserted"] += len(to_insert)
 
     return stats
 
