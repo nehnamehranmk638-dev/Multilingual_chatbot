@@ -1192,3 +1192,277 @@ body {
 .auth-link:hover {
   text-decoration: underline;
 }
+
+/* ============================================================ */
+/* ADMIN INPUT PLACEHOLDER VISIBILITY & CONTRAST FIX           */
+/* ============================================================ */
+
+.auth-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.admin-auth-input {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+.admin-auth-input::placeholder {
+  color: #94a3b8 !important; /* Clearly readable contrast against dark input background */
+  font-style: italic;
+  opacity: 0.95;
+}
+
+.admin-auth-input:focus {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.3) !important;
+}
+
+/* ============================================================ */
+/* SIMPLIFIED WELCOME SCREEN & LANGUAGE BUTTONS               */
+/* ============================================================ */
+
+.simplified-welcome-card {
+  max-width: 520px;
+  padding: 40px 24px;
+}
+
+.welcome-lang-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.lang-select-btn {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #f1f5f9 !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  padding: 10px 18px !important;
+  border-radius: 12px !important;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.lang-select-btn:hover {
+  background: rgba(37, 99, 235, 0.3) !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.3);
+}
+
+.lang-select-btn.active {
+  background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+}
+
+/* ============================================================ */
+/* POST-LOGIN HUB DASHBOARD SCREEN                              */
+/* ============================================================ */
+
+.hub-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 580px;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.hub-header {
+  padding: 16px 24px;
+  background: rgba(30, 41, 59, 0.9);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.hub-lang-switch-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hub-lang-switch-btn:hover {
+  background: rgba(37, 99, 235, 0.25);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #ffffff;
+}
+
+.hub-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hub-welcome-banner {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.hub-welcome-banner h2 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.hub-welcome-banner p {
+  font-size: 0.95rem;
+  color: #94a3b8;
+}
+
+.hub-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.hub-feature-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 26px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.hub-feature-card:hover {
+  transform: translateY(-4px);
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), 0 0 25px rgba(37, 99, 235, 0.2);
+}
+
+.hub-feature-card:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.hub-card-icon-box {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+.hub-card-icon-box.chat-icon {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(59, 130, 246, 0.35) 100%);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  color: #60a5fa;
+}
+
+.hub-card-icon-box.map-icon {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(52, 211, 153, 0.35) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #34d399;
+}
+
+.hub-card-icon-box.feedback-icon {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(192, 132, 252, 0.35) 100%);
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  color: #c084fc;
+}
+
+.hub-card-info h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 6px;
+}
+
+.hub-card-info p {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.hub-card-action {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.2s;
+}
+
+.hub-feature-card:hover .hub-card-action {
+  transform: translateX(4px);
+  color: #93c5fd;
+}
+
+/* ============================================================ */
+/* LOGOUT CONFIRMATION MODAL                                    */
+/* ============================================================ */
+
+.logout-confirm-dialog {
+  max-width: 380px !important;
+}
+
+.logout-icon-pill {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-confirm-logout {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-confirm-logout:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+

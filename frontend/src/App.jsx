@@ -9,6 +9,8 @@ import SignupPage from './components/SignupPage';
 import AdminLoginPage from './components/AdminLoginPage';
 import AdminDashboard from './components/AdminDashboard';
 import FeedbackDialog from './components/FeedbackDialog';
+import LogoutConfirmModal from './components/LogoutConfirmModal';
+import HubDashboard from './components/HubDashboard';
 import { Globe2, Sparkles, MapPin, Compass } from 'lucide-react';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
@@ -18,6 +20,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [showGeneralFeedback, setShowGeneralFeedback] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('chatLanguage') || 'en');
   const [sessionId, setSessionId] = useState(() => 'session-' + Math.random().toString(36).substring(2, 9));
 
   // ----------------------------------------------------------
@@ -29,11 +33,20 @@ export default function App() {
     if (p.startsWith('/admin')) return 'admin-dashboard';
     if (p.startsWith('/signup')) return 'signup';
     if (p.startsWith('/login')) return 'login';
+    if (p.startsWith('/hub')) return 'hub';
     if (p.startsWith('/chat')) return 'chat';
-    return localStorage.getItem('authToken') ? 'chat' : 'login';
+    return localStorage.getItem('authToken') ? 'hub' : 'login';
   };
 
   const [currentRoute, setCurrentRoute] = useState(() => getRouteFromPath(window.location.pathname));
+
+  // Track sub-view for authenticated portal: 'welcome' | 'hub' | 'chat'
+  const [activeView, setActiveView] = useState(() => {
+    const hasLang = localStorage.getItem('hasSelectedLang');
+    const path = (window.location.pathname || '').toLowerCase();
+    if (path.startsWith('/chat')) return 'chat';
+    return hasLang ? 'hub' : 'welcome';
+  });
 
   const navigate = (path) => {
     window.history.pushState({}, '', path);
@@ -151,7 +164,9 @@ export default function App() {
     if (redirect === 'admin-login') { navigate('/admin/login'); return; }
     setCurrentUser(user);
     setUserMode(user?.role || '');
-    navigate('/chat');
+    // Take user to the welcome screen for language selection first, or hub
+    setActiveView('welcome');
+    navigate('/hub');
   };
 
   const handleLogout = async () => {
@@ -169,9 +184,11 @@ export default function App() {
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userMode');
+    localStorage.removeItem('hasSelectedLang');
     setCurrentUser(null);
     setUserMode('');
     setMessages([]);
+    setActiveView('welcome');
     navigate('/login');
   };
 
@@ -489,11 +506,88 @@ export default function App() {
    * ---------------------------------------------------------
    */
 
+  // Language options supported
+  const LANGUAGE_OPTIONS = [
+    { code: 'en', label: '🌐 English' },
+    { code: 'ml', label: '🇮🇳 മലയാളം (Malayalam)' },
+    { code: 'hi', label: '🇮🇳 हिन्दी (Hindi)' },
+    { code: 'ta', label: '🇮🇳 தமிழ் (Tamil)' },
+    { code: 'te', label: '🇮🇳 తెలుగు (Telugu)' },
+    { code: 'kn', label: '🇮🇳 ಕನ್ನಡ (Kannada)' },
+  ];
+
+  const handleSelectLanguage = (langCode) => {
+    setSelectedLanguage(langCode);
+    localStorage.setItem('chatLanguage', langCode);
+    localStorage.setItem('hasSelectedLang', 'true');
+    setActiveView('hub');
+    navigate('/hub');
+  };
+
+  // If in Hub view, show Hub Dashboard
+  if (activeView === 'hub') {
+    return (
+      <div className="app-container">
+        <HubDashboard
+          currentUser={currentUser}
+          selectedLanguage={selectedLanguage}
+          onOpenChat={() => {
+            setActiveView('chat');
+            navigate('/chat');
+          }}
+          onOpenMap={() => setIsMapOpen(true)}
+          onOpenFeedback={() => setShowGeneralFeedback(true)}
+          onRequestLogout={() => setShowLogoutModal(true)}
+          onChangeLanguage={() => {
+            setActiveView('welcome');
+          }}
+        />
+
+        {/* Campus Map & Room Navigator Modal */}
+        <CampusMapModal 
+          isOpen={isMapOpen} 
+          onClose={() => setIsMapOpen(false)}
+          onAskAboutPlace={(query) => {
+            setIsMapOpen(false);
+            setActiveView('chat');
+            navigate('/chat');
+            handleSendMessage(query);
+          }}
+        />
+
+        {/* General Feedback Modal */}
+        {showGeneralFeedback && (
+          <FeedbackDialog
+            type="general"
+            sessionId={sessionId}
+            messageId={null}
+            language={selectedLanguage || currentLanguage}
+            userMode={userMode}
+            onClose={() => setShowGeneralFeedback(false)}
+            onSubmit={handleGeneralFeedbackSubmit}
+          />
+        )}
+
+        {/* Logout Confirmation Modal */}
+        <LogoutConfirmModal
+          isOpen={showLogoutModal}
+          onClose={() => setShowLogoutModal(false)}
+          onConfirm={() => {
+            setShowLogoutModal(false);
+            handleLogout();
+          }}
+          title="Confirm Logout"
+          message="Are you sure you want to log out?"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
 
       {/* =====================================================
-          HEADER  (single render – replaces duplicate)
+          HEADER
           ===================================================== */}
       <Header
         onReset={handleReset}
@@ -501,12 +595,16 @@ export default function App() {
         messageCount={messages.length}
         onFeedback={() => setShowGeneralFeedback(true)}
         currentUser={currentUser}
-        onLogout={handleLogout}
+        onLogout={() => setShowLogoutModal(true)}
+        onNavigateToHub={() => {
+          setActiveView('hub');
+          navigate('/hub');
+        }}
       />
 
 
       {/* =====================================================
-          CHAT MESSAGES
+          CHAT MESSAGES / SIMPLIFIED WELCOME
           ===================================================== */}
 
       <div className="chat-messages-container">
@@ -515,57 +613,35 @@ export default function App() {
 
           /*
            * -------------------------------------------------
-           * WELCOME SCREEN
+           * SIMPLIFIED WELCOME SCREEN
+           * Shows ONLY:
+           * - "Welcome to IIIT Kottayam"
+           * - The language selection buttons
            * -------------------------------------------------
            */
 
-          <div className="welcome-card">
+          <div className="welcome-card simplified-welcome-card">
 
             <div className="welcome-icon">
               🎓
             </div>
 
-
             <h2 className="welcome-title">
               Welcome to IIIT Kottayam
             </h2>
 
-
-            <p className="welcome-desc">
-              Your AI-powered Multilingual Admission &amp; Campus Guide. Ask questions regarding B.Tech admissions, seat eligibility, fee structure, classroom locations (e.g. <code>BC304</code>, <code>AA101</code>), or campus spots like Scoops, Milma &amp; Mess.
-            </p>
-
-            {/* Quick Interactive Map Launcher Banner */}
-            <div 
-              className="welcome-map-banner"
-              onClick={() => setIsMapOpen(true)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
-                  <Compass size={24} />
-                </div>
-                <div className="text-left">
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    Explore IIITK Campus Map &amp; Room Navigator
-                    <span className="text-[10px] bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full border border-blue-400/40">NEW</span>
-                  </h4>
-                  <p className="text-xs text-slate-300">
-                    Find Admin Block, Old Academic (AA/AC), New Academic (BA/BC), Scoops, Milma &amp; Mess
-                  </p>
-                </div>
-              </div>
-              <button className="open-map-pill">
-                Open Map 📍
-              </button>
-            </div>
-
-            <div className="language-tags-grid mt-4">
-              <span className="lang-badge">🌐 English</span>
-              <span className="lang-badge">🇮🇳 മലയാളം (Malayalam)</span>
-              <span className="lang-badge">🇮🇳 हिन्दी (Hindi)</span>
-              <span className="lang-badge">🇮🇳 தமிழ் (Tamil)</span>
-              <span className="lang-badge">🇮🇳 తెలుగు (Telugu)</span>
-              <span className="lang-badge">🇮🇳 ಕನ್ನಡ (Kannada)</span>
+            <div className="language-tags-grid welcome-lang-buttons mt-4">
+              {LANGUAGE_OPTIONS.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => handleSelectLanguage(lang.code)}
+                  className={`lang-badge lang-select-btn ${selectedLanguage === lang.code ? 'active' : ''}`}
+                  title={`Select ${lang.label}`}
+                >
+                  {lang.label}
+                </button>
+              ))}
             </div>
 
           </div>
@@ -593,11 +669,6 @@ export default function App() {
                   sessionId
                 }
 
-                /*
-                 * Pass mode to ChatMessage
-                 * so response feedback can
-                 * automatically include it.
-                 */
                 userMode={
                   userMode
                 }
@@ -665,12 +736,24 @@ export default function App() {
           type="general"
           sessionId={sessionId}
           messageId={null}
-          language={currentLanguage}
+          language={selectedLanguage || currentLanguage}
           userMode={userMode}
           onClose={() => setShowGeneralFeedback(false)}
           onSubmit={handleGeneralFeedbackSubmit}
         />
       )}
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          handleLogout();
+        }}
+        title="Confirm Logout"
+        message="Are you sure you want to log out?"
+      />
     </div>
   );
 }

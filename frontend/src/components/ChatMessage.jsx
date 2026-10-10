@@ -105,13 +105,6 @@ export default function ChatMessage({ message, sessionId }) {
         <div className="message-bubble">
           {message.content}
 
-          {/* If the query was translated from Indic language to English */}
-          {message.translated_query && message.translated_query !== message.content && (
-            <div className="translated-preview">
-              <strong>Query in English:</strong> {message.translated_query}
-            </div>
-          )}
-
           {/* Sources citations (only display when an actual answer was retrieved) */}
           {message.sources && message.sources.length > 0 && !isUnavailableAnswer(message.content) && (
             <div className="sources-box">

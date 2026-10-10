@@ -58,28 +58,38 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onNavigateToApp })
         {error && <div className="auth-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <label className="auth-label">Username / Email</label>
-          <input
-            type="text"
-            className="auth-input"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="admin / admin@iiitkottayam.ac.in"
-            autoComplete="username"
-            disabled={loading}
-            autoFocus
-          />
+          <div className="auth-field-group">
+            <label className="auth-label" htmlFor="admin-username">
+              Username or Official Email
+            </label>
+            <input
+              id="admin-username"
+              type="text"
+              className="auth-input admin-auth-input"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. admin or admin@iiitkottayam.ac.in"
+              autoComplete="username"
+              disabled={loading}
+              autoFocus
+            />
+          </div>
 
-          <label className="auth-label">Password</label>
-          <input
-            type="password"
-            className="auth-input"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••••••"
-            autoComplete="current-password"
-            disabled={loading}
-          />
+          <div className="auth-field-group">
+            <label className="auth-label" htmlFor="admin-password">
+              Admin Password
+            </label>
+            <input
+              id="admin-password"
+              type="password"
+              className="auth-input admin-auth-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your administrative password"
+              autoComplete="current-password"
+              disabled={loading}
+            />
+          </div>
 
           <button
             type="submit"

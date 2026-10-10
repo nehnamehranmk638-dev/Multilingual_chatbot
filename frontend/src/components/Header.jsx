@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Compass, LogOut, MessageSquare } from 'lucide-react';
+import { RotateCcw, Compass, LogOut, MessageSquare, Home } from 'lucide-react';
 
 export default function Header({
   onReset,
@@ -8,6 +8,7 @@ export default function Header({
   onFeedback,
   currentUser,
   onLogout,
+  onNavigateToHub,
 }) {
   const isStudent = currentUser?.role === 'student';
   const isParent = currentUser?.role === 'parent';
@@ -22,10 +23,6 @@ export default function Header({
         <div className="header-titles">
           <h1>
             IIIT Kottayam
-            <span className="status-badge">
-              <span className="status-dot"></span>
-              AI Online
-            </span>
             {roleLabel && (
               <span
                 className={`role-badge ${isStudent ? 'role-student' : 'role-parent'}`}
@@ -35,11 +32,21 @@ export default function Header({
               </span>
             )}
           </h1>
-          <p>Official Multilingual Admission &amp; Campus Guide</p>
         </div>
       </div>
 
       <div className="header-actions">
+        {/* Home / Hub Screen Button */}
+        {onNavigateToHub && (
+          <button
+            className="btn-icon"
+            onClick={onNavigateToHub}
+            title="Return to Home Dashboard"
+            aria-label="Home"
+          >
+            <Home size={17} />
+          </button>
+        )}
         {/* Campus Map & Room Navigator Button */}
         <button 
           className="campus-map-nav-btn"

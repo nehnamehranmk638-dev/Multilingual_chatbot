@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import LogoutConfirmModal from './LogoutConfirmModal';
 
 const API_BASE = 'http://127.0.0.1:8000/api/admin';
 
@@ -6,6 +7,7 @@ export default function AdminDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('analytics'); // Default to Analytics tab
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Analytics State
   const [analytics, setAnalytics] = useState(null);
@@ -209,11 +211,22 @@ export default function AdminDashboard({ onLogout }) {
           <a href="/chat" style={{ color: '#2563eb', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 600, padding: '8px 14px', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
             💬 Open Chatbot
           </a>
-          <button onClick={handleLogout} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}>
+          <button onClick={() => setShowLogoutModal(true)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}>
             🚪 Logout
           </button>
         </div>
       </div>
+
+      <LogoutConfirmModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          handleLogout();
+        }}
+        title="Admin Logout"
+        message="Are you sure you want to log out of the Administrator Portal?"
+      />
 
       {error && (
         <div style={{ background: '#fee2e2', border: '1px solid #f87171', color: '#b91c1c', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
