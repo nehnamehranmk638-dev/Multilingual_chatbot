@@ -42,16 +42,6 @@ export default function HubDashboard({
         </div>
 
         <div className="header-actions">
-          {onChangeLanguage && (
-            <button
-              className="hub-lang-switch-btn"
-              onClick={onChangeLanguage}
-              title="Change preferred language"
-            >
-              🌐 {currentLangLabel}
-            </button>
-          )}
-
           <button
             className="btn-icon btn-logout"
             onClick={onRequestLogout}

@@ -47,16 +47,6 @@ export default function Header({
             <Home size={17} />
           </button>
         )}
-        {/* Campus Map & Room Navigator Button */}
-        <button 
-          className="campus-map-nav-btn"
-          onClick={onOpenMap}
-          title="Open IIITK Campus Map & Room Locator"
-          aria-label="Campus Map"
-        >
-          <Compass size={16} className="text-blue-400 animate-spin-slow" />
-          <span>Campus Map &amp; Rooms</span>
-        </button>
 
         {/* Give Feedback Button */}
         {onFeedback && (

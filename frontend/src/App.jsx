@@ -40,12 +40,11 @@ export default function App() {
 
   const [currentRoute, setCurrentRoute] = useState(() => getRouteFromPath(window.location.pathname));
 
-  // Track sub-view for authenticated portal: 'welcome' | 'hub' | 'chat'
+  // Track sub-view for authenticated portal: 'hub' | 'chat'
   const [activeView, setActiveView] = useState(() => {
-    const hasLang = localStorage.getItem('hasSelectedLang');
     const path = (window.location.pathname || '').toLowerCase();
     if (path.startsWith('/chat')) return 'chat';
-    return hasLang ? 'hub' : 'welcome';
+    return 'hub';
   });
 
   const navigate = (path) => {
@@ -164,8 +163,7 @@ export default function App() {
     if (redirect === 'admin-login') { navigate('/admin/login'); return; }
     setCurrentUser(user);
     setUserMode(user?.role || '');
-    // Take user to the welcome screen for language selection first, or hub
-    setActiveView('welcome');
+    setActiveView('hub');
     navigate('/hub');
   };
 
@@ -188,7 +186,7 @@ export default function App() {
     setCurrentUser(null);
     setUserMode('');
     setMessages([]);
-    setActiveView('welcome');
+    setActiveView('hub');
     navigate('/login');
   };
 
@@ -506,24 +504,6 @@ export default function App() {
    * ---------------------------------------------------------
    */
 
-  // Language options supported
-  const LANGUAGE_OPTIONS = [
-    { code: 'en', label: '🌐 English' },
-    { code: 'ml', label: '🇮🇳 മലയാളം (Malayalam)' },
-    { code: 'hi', label: '🇮🇳 हिन्दी (Hindi)' },
-    { code: 'ta', label: '🇮🇳 தமிழ் (Tamil)' },
-    { code: 'te', label: '🇮🇳 తెలుగు (Telugu)' },
-    { code: 'kn', label: '🇮🇳 ಕನ್ನಡ (Kannada)' },
-  ];
-
-  const handleSelectLanguage = (langCode) => {
-    setSelectedLanguage(langCode);
-    localStorage.setItem('chatLanguage', langCode);
-    localStorage.setItem('hasSelectedLang', 'true');
-    setActiveView('hub');
-    navigate('/hub');
-  };
-
   // If in Hub view, show Hub Dashboard
   if (activeView === 'hub') {
     return (
@@ -538,9 +518,6 @@ export default function App() {
           onOpenMap={() => setIsMapOpen(true)}
           onOpenFeedback={() => setShowGeneralFeedback(true)}
           onRequestLogout={() => setShowLogoutModal(true)}
-          onChangeLanguage={() => {
-            setActiveView('welcome');
-          }}
         />
 
         {/* Campus Map & Room Navigator Modal */}
@@ -604,21 +581,12 @@ export default function App() {
 
 
       {/* =====================================================
-          CHAT MESSAGES / SIMPLIFIED WELCOME
+          CHAT MESSAGES / WELCOME SCREEN
           ===================================================== */}
 
       <div className="chat-messages-container">
 
         {messages.length === 0 ? (
-
-          /*
-           * -------------------------------------------------
-           * SIMPLIFIED WELCOME SCREEN
-           * Shows ONLY:
-           * - "Welcome to IIIT Kottayam"
-           * - The language selection buttons
-           * -------------------------------------------------
-           */
 
           <div className="welcome-card simplified-welcome-card">
 
@@ -630,19 +598,9 @@ export default function App() {
               Welcome to IIIT Kottayam
             </h2>
 
-            <div className="language-tags-grid welcome-lang-buttons mt-4">
-              {LANGUAGE_OPTIONS.map((lang) => (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => handleSelectLanguage(lang.code)}
-                  className={`lang-badge lang-select-btn ${selectedLanguage === lang.code ? 'active' : ''}`}
-                  title={`Select ${lang.label}`}
-                >
-                  {lang.label}
-                </button>
-              ))}
-            </div>
+            <p className="welcome-desc" style={{ marginTop: '8px', color: '#94a3b8', fontSize: '0.92rem' }}>
+              How can I help you today? You can ask about B.Tech admissions, eligibility, fees, scholarships, or hostels in English, Malayalam, Hindi, Tamil, Telugu, or Kannada.
+            </p>
 
           </div>
 

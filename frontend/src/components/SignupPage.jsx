@@ -58,19 +58,19 @@ export default function SignupPage({ onSignupSuccess }) {
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label className="auth-label">Full Name</label>
-          <input className="auth-input" type="text" placeholder="Your full name"
+          <input className="auth-input" type="text"
             value={form.name} onChange={set('name')} autoComplete="name" required />
 
           <label className="auth-label">Email</label>
-          <input className="auth-input" type="email" placeholder="you@example.com"
+          <input className="auth-input" type="email"
             value={form.email} onChange={set('email')} autoComplete="email" required />
 
           <label className="auth-label">Password</label>
-          <input className="auth-input" type="password" placeholder="Min. 6 characters"
+          <input className="auth-input" type="password"
             value={form.password} onChange={set('password')} autoComplete="new-password" required />
 
           <label className="auth-label">Confirm Password</label>
-          <input className="auth-input" type="password" placeholder="Repeat password"
+          <input className="auth-input" type="password"
             value={form.confirm_password} onChange={set('confirm_password')} autoComplete="new-password" required />
 
           <label className="auth-label">I am a:</label>

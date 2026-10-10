@@ -68,7 +68,6 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onNavigateToApp })
               className="auth-input admin-auth-input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. admin or admin@iiitkottayam.ac.in"
               autoComplete="username"
               disabled={loading}
               autoFocus
@@ -85,7 +84,6 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onNavigateToApp })
               className="auth-input admin-auth-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your administrative password"
               autoComplete="current-password"
               disabled={loading}
             />
