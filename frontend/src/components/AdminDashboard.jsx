@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Check, BookOpen, AlertCircle, RefreshCw } from 'lucide-react';
 import LogoutConfirmModal from './LogoutConfirmModal';
-
+import PageContainer from '../app/components/ui/PageContainer';
 
 const API_BASE = 'http://127.0.0.1:8000/api/admin';
 
@@ -57,7 +57,6 @@ export default function AdminDashboard({ onLogout }) {
     return list;
   }, [kbDocs, debouncedSearchTerm, kbCategoryFilter]);
 
-
   // Escalations State
   const [escalations, setEscalations] = useState([]);
   const [escModalOpen, setEscModalOpen] = useState(false);
@@ -104,18 +103,17 @@ export default function AdminDashboard({ onLogout }) {
     }
   };
 
-  const loadKb = async (filterOverride) => {
+  const loadKb = async (verifiedStatus = kbVerifiedFilter) => {
     setLoading(true);
     setError('');
-    const filter = filterOverride !== undefined ? filterOverride : kbVerifiedFilter;
     try {
-      let endpoint = `${API_BASE}/kb/`;
-      if (filter === 'false' || filter === 'true') {
-        endpoint += `?verified=${filter}`;
+      let url = `${API_BASE}/kb/`;
+      if (verifiedStatus !== 'all') {
+        url += `?verified=${verifiedStatus}`;
       }
-      const res = await fetch(endpoint, { headers: authHeaders });
+      const res = await fetch(url, { headers: authHeaders });
       if (res.status === 401) throw new Error('Unauthorized');
-      if (!res.ok) throw new Error('Failed to fetch knowledge base');
+      if (!res.ok) throw new Error('Failed to fetch KB docs');
       const data = await res.json();
       setKbDocs(data);
     } catch (err) {
@@ -251,408 +249,467 @@ export default function AdminDashboard({ onLogout }) {
   };
 
   return (
-    <div className="admin-container" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', color: '#1e293b' }}>
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', background: '#ffffff', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.8rem' }}>🏛️</span>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.35rem', color: '#1a73e8', fontWeight: 700 }}>IIIT Kottayam • Chatbot Admin</h1>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>Authorized Administrator Dashboard</p>
+    <div className="min-h-screen w-full bg-[#f5f1e8] text-[#1a1a1a] p-4 sm:p-8 font-['Inter',sans-serif]">
+      <PageContainer size="xl" className="flex flex-col gap-6">
+        {/* Top Header Card */}
+        <header className="bg-white border border-[#e8e3d8] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-[#2d2d2d] text-white text-xl flex items-center justify-center shadow-md">
+              🏛️
+            </div>
+            <div>
+              <h1 className="font-heading font-bold text-lg sm:text-xl text-[#1a1a1a] tracking-tight">
+                IIIT Kottayam • Administration
+              </h1>
+              <p className="text-xs sm:text-sm text-[#6b6b6b] font-medium">
+                Manage campus assistance, knowledge resources, and platform insights.
+              </p>
+            </div>
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <a href="/chat" style={{ color: '#2563eb', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 600, padding: '8px 14px', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-            💬 Open Chatbot
-          </a>
-          <button onClick={() => setShowLogoutModal(true)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}>
-            🚪 Logout
-          </button>
-        </div>
-      </div>
 
-      <LogoutConfirmModal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirm={() => {
-          setShowLogoutModal(false);
-          handleLogout();
-        }}
-        title="Admin Logout"
-        message="Are you sure you want to log out of the Administrator Portal?"
-      />
+          <div className="flex items-center gap-3">
+            <a
+              href="/chat"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#e8e3d8] bg-[#faf8f3] text-xs sm:text-sm font-semibold text-[#1a1a1a] hover:bg-[#2d2d2d] hover:text-white transition-all shadow-2xs"
+            >
+              <span>💬</span>
+              <span>Open Chatbot</span>
+            </a>
 
-      {error && (
-        <div style={{ background: '#fee2e2', border: '1px solid #f87171', color: '#b91c1c', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
-          {error}
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        {[
-          { id: 'analytics', label: '📊 Analytics' },
-          { id: 'kb', label: '📚 Knowledge Base' },
-          { id: 'escalations', label: '🚨 Escalations' },
-          { id: 'feedback', label: '💬 User Feedback' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '10px 20px',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              background: activeTab === tab.id ? '#1a73e8' : '#e2e8f0',
-              color: activeTab === tab.id ? '#ffffff' : '#475569',
-              transition: 'all 0.2s',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab 1: Analytics */}
-      {activeTab === 'analytics' && (
-        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>Analytics Overview</h2>
-            <button onClick={loadAnalytics} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem' }}>
-              🔄 Refresh
+            <button
+              type="button"
+              onClick={() => setShowLogoutModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#e85d4a] text-white text-xs sm:text-sm font-semibold hover:bg-[#d64a37] transition-all cursor-pointer shadow-2xs"
+            >
+              <span>Logout</span>
             </button>
           </div>
+        </header>
 
-          {loading && !analytics ? (
-            <p style={{ color: '#64748b' }}>Loading analytics metrics...</p>
-          ) : analytics ? (
-            <div>
-              {/* KPI Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#1a73e8' }}>{analytics.total_queries}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Total Queries</div>
-                </div>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#1a73e8' }}>{analytics.unique_sessions}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Unique Sessions</div>
-                </div>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '4px solid #10b981', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#10b981' }}>{analytics.feedback?.helpful || 0}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Helpful Feedback</div>
-                </div>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '4px solid #ef4444', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#ef4444' }}>{analytics.feedback?.not_helpful || 0}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Not Helpful</div>
-                </div>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '4px solid #f59e0b', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#f59e0b' }}>{analytics.escalations?.pending || 0}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Pending Escalations</div>
-                </div>
-              </div>
+        {/* Logout Modal */}
+        <LogoutConfirmModal
+          isOpen={showLogoutModal}
+          onClose={() => setShowLogoutModal(false)}
+          onConfirm={() => {
+            setShowLogoutModal(false);
+            handleLogout();
+          }}
+          title="Admin Logout"
+          message="Are you sure you want to log out of the Administrator Portal?"
+        />
 
-              {/* Language breakdown */}
-              <h3 style={{ fontSize: '1rem', color: '#334155', marginBottom: '12px' }}>Queries by Language</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
-                {analytics.queries_by_language?.map((item) => {
-                  const maxCount = Math.max(...analytics.queries_by_language.map((q) => q.count), 1);
-                  const pct = Math.round((item.count / maxCount) * 100);
-                  return (
-                    <div key={item.language} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.88rem' }}>
-                      <span style={{ width: '100px', textAlign: 'right', fontWeight: 500, color: '#475569' }}>{item.language}</span>
-                      <div style={{ flex: 1, background: '#e2e8f0', height: '18px', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, background: '#2563eb', height: '100%', borderRadius: '4px' }} />
-                      </div>
-                      <span style={{ width: '50px', fontWeight: 600, color: '#1e293b' }}>{item.count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
+        {/* Error Alert */}
+        {error && (
+          <div className="rounded-2xl bg-[#e85d4a]/10 border border-[#e85d4a]/30 p-4 text-xs sm:text-sm text-[#e85d4a] font-medium flex items-center gap-2">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Tab Navigation Segmented Control */}
+        <div className="flex flex-wrap gap-2 p-1.5 bg-[#ffffff] border border-[#e8e3d8] rounded-2xl shadow-2xs">
+          {[
+            { id: 'analytics', label: '📊 Analytics' },
+            { id: 'kb', label: '📚 Knowledge Base' },
+            { id: 'escalations', label: '🚨 Escalations' },
+            { id: 'feedback', label: '💬 User Feedback' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-[#f4a340] text-white shadow-sm'
+                  : 'text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-[#faf8f3]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* Tab 2: Knowledge Base */}
-      {activeTab === 'kb' && (
-        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>Knowledge Base Documents</h2>
-              <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
-                Showing {filteredKbDocs.length} of {kbDocs.length} documents
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              {/* Search input with live debounced filtering */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Search size={15} style={{ position: 'absolute', left: '10px', color: '#94a3b8', pointerEvents: 'none' }} />
-                <input
-                  type="text"
-                  placeholder="Search title or content..."
-                  value={kbSearchInput}
-                  onChange={(e) => setKbSearchInput(e.target.value)}
-                  style={{
-                    padding: '8px 30px 8px 32px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '0.85rem',
-                    width: '230px',
-                    outline: 'none',
-                    transition: 'border-color 0.15s ease',
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = '#1a73e8'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#cbd5e1'; }}
-                />
-                {kbSearchInput && (
-                  <button
-                    type="button"
-                    onClick={() => setKbSearchInput('')}
-                    style={{
-                      position: 'absolute',
-                      right: '8px',
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: '#94a3b8',
-                      padding: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                    title="Clear search"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {/* Category dropdown filter */}
-              {categories.length > 0 && (
-                <select
-                  value={kbCategoryFilter}
-                  onChange={(e) => setKbCategoryFilter(e.target.value)}
-                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
-                  title="Filter by category"
-                >
-                  <option value="all">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              )}
-
-              {/* Verification status filter */}
-              <select
-                value={kbVerifiedFilter}
-                onChange={(e) => {
-                  setKbVerifiedFilter(e.target.value);
-                  loadKb(e.target.value);
-                }}
-                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
-                title="Filter by status"
-              >
-                <option value="all">All Documents</option>
-                <option value="false">Unverified (Pending Review)</option>
-                <option value="true">Verified (Approved)</option>
-              </select>
-
-              {/* Add document button */}
+        {/* Tab 1: Analytics */}
+        {activeTab === 'analytics' && (
+          <div className="bg-white border border-[#e8e3d8] rounded-3xl p-8 sm:p-10 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-heading font-bold text-lg sm:text-xl text-[#1a1a1a]">
+                Analytics Overview
+              </h2>
               <button
-                onClick={() => {
-                  setCurrentDoc({ id: null, title: '', content: '', category: '', language: 'en', source: '', verified: false });
-                  setKbModalOpen(true);
-                }}
-                style={{ background: '#1a73e8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                type="button"
+                onClick={loadAnalytics}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#e8e3d8] bg-[#faf8f3] text-xs font-semibold text-[#6b6b6b] hover:text-[#1a1a1a] transition-all cursor-pointer"
               >
-                + Add Document
+                <RefreshCw size={12} />
+                <span>Refresh</span>
               </button>
             </div>
+
+            {loading && !analytics ? (
+              <p className="text-xs sm:text-sm text-[#6b6b6b]">Loading analytics metrics…</p>
+            ) : analytics ? (
+              <div>
+                {/* KPI Cards Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-5 mb-8">
+                  <div className="bg-[#faf8f3] border border-[#e8e3d8] rounded-2xl p-5 sm:p-6 text-center">
+                    <div className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">
+                      {analytics.total_queries}
+                    </div>
+                    <div className="text-xs text-[#6b6b6b] font-medium mt-1.5">Total Queries</div>
+                  </div>
+
+                  <div className="bg-[#faf8f3] border border-[#e8e3d8] rounded-2xl p-5 sm:p-6 text-center">
+                    <div className="font-heading text-2xl sm:text-3xl font-bold text-[#1a1a1a]">
+                      {analytics.unique_sessions}
+                    </div>
+                    <div className="text-xs text-[#6b6b6b] font-medium mt-1.5">Unique Sessions</div>
+                  </div>
+
+                  <div className="bg-[#faf8f3] border border-[#e8e3d8] rounded-2xl p-5 sm:p-6 text-center">
+                    <div className="font-heading text-2xl sm:text-3xl font-bold text-[#f4a340]">
+                      {analytics.feedback?.helpful || 0}
+                    </div>
+                    <div className="text-xs text-[#6b6b6b] font-medium mt-1.5">Helpful Feedback</div>
+                  </div>
+
+                  <div className="bg-[#faf8f3] border border-[#e8e3d8] rounded-2xl p-5 sm:p-6 text-center">
+                    <div className="font-heading text-2xl sm:text-3xl font-bold text-[#e85d4a]">
+                      {analytics.feedback?.not_helpful || 0}
+                    </div>
+                    <div className="text-xs text-[#6b6b6b] font-medium mt-1.5">Not Helpful</div>
+                  </div>
+
+                  <div className="bg-[#faf8f3] border border-[#e8e3d8] rounded-2xl p-5 sm:p-6 text-center col-span-2 sm:col-span-1">
+                    <div className="font-heading text-2xl sm:text-3xl font-bold text-[#2d2d2d]">
+                      {analytics.escalations?.pending || 0}
+                    </div>
+                    <div className="text-xs text-[#6b6b6b] font-medium mt-1.5">Pending Escalations</div>
+                  </div>
+                </div>
+
+                {/* Queries by Language Breakdown */}
+                <div className="bg-[#faf8f3] border border-[#e8e3d8] rounded-2xl p-5 sm:p-6">
+                  <h3 className="font-heading font-bold text-sm sm:text-base text-[#1a1a1a] mb-4">
+                    Queries by Language
+                  </h3>
+                  <div className="flex flex-col gap-3.5">
+                    {analytics.queries_by_language?.map((item) => {
+                      const maxCount = Math.max(...analytics.queries_by_language.map((q) => q.count), 1);
+                      const pct = Math.round((item.count / maxCount) * 100);
+                      return (
+                        <div key={item.language} className="flex items-center gap-3 text-xs sm:text-sm">
+                          <span className="w-24 text-right font-medium text-[#6b6b6b]">{item.language}</span>
+                          <div className="flex-1 bg-white border border-[#e8e3d8] h-4 rounded-full overflow-hidden p-0.5">
+                            <div style={{ width: `${pct}%` }} className="bg-[#f4a340] h-full rounded-full transition-all duration-300" />
+                          </div>
+                          <span className="w-12 font-bold text-[#1a1a1a]">{item.count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
+        )}
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                <th style={{ padding: '10px 12px' }}>Title</th>
-                <th style={{ padding: '10px 12px' }}>Category</th>
-                <th style={{ padding: '10px 12px' }}>Language</th>
-                <th style={{ padding: '10px 12px' }}>Status</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredKbDocs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>
-                    {debouncedSearchTerm.trim()
-                      ? `No documents matching "${debouncedSearchTerm}"`
-                      : 'No documents found.'}
-                  </td>
-                </tr>
-              ) : (
-                filteredKbDocs.map((doc) => (
-                  <tr key={doc._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{doc.title}</td>
-                    <td style={{ padding: '10px 12px', color: '#64748b' }}>{doc.category || '—'}</td>
-                    <td style={{ padding: '10px 12px' }}>{doc.language || 'en'}</td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, background: doc.verified ? '#dcfce7' : '#fef9c3', color: doc.verified ? '#166534' : '#854d0e' }}>
-                        {doc.verified ? 'Verified' : 'Unverified'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => {
-                          setCurrentDoc({ id: doc._id, ...doc });
-                          setKbModalOpen(true);
-                        }}
-                        style={{ background: '#e2e8f0', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '6px' }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteKb(doc._id)}
-                        style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        Delete
-                      </button>
-                    </td>
+        {/* Tab 2: Knowledge Base */}
+        {activeTab === 'kb' && (
+          <div className="bg-white border border-[#e8e3d8] rounded-3xl p-8 sm:p-10 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="font-heading font-bold text-lg sm:text-xl text-[#1a1a1a]">
+                  Knowledge Base Articles
+                </h2>
+                <p className="text-xs text-[#6b6b6b] font-medium mt-0.5">
+                  Showing {filteredKbDocs.length} of {kbDocs.length} indexed articles
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Search */}
+                <div className="relative flex items-center">
+                  <Search size={15} className="absolute left-3.5 text-[#9b9b9b] pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search articles…"
+                    value={kbSearchInput}
+                    onChange={(e) => setKbSearchInput(e.target.value)}
+                    className="pl-10.5 pr-8 py-2.5 rounded-xl border border-[#e8e3d8] bg-[#faf8f3] text-xs sm:text-sm text-[#1a1a1a] placeholder:text-[#9b9b9b] outline-none focus:border-[#f4a340]"
+                  />
+                  {kbSearchInput && (
+                    <button
+                      type="button"
+                      onClick={() => setKbSearchInput('')}
+                      className="absolute right-2.5 text-[#9b9b9b] hover:text-[#1a1a1a] cursor-pointer"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Category select */}
+                {categories.length > 0 && (
+                  <select
+                    value={kbCategoryFilter}
+                    onChange={(e) => setKbCategoryFilter(e.target.value)}
+                    className="px-3.5 py-2.5 rounded-xl border border-[#e8e3d8] bg-[#faf8f3] text-xs sm:text-sm text-[#1a1a1a] outline-none"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Status Filter */}
+                <select
+                  value={kbVerifiedFilter}
+                  onChange={(e) => {
+                    setKbVerifiedFilter(e.target.value);
+                    loadKb(e.target.value);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl border border-[#e8e3d8] bg-[#faf8f3] text-xs sm:text-sm text-[#1a1a1a] outline-none"
+                >
+                  <option value="all">All Articles</option>
+                  <option value="false">Unverified</option>
+                  <option value="true">Verified</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentDoc({ id: null, title: '', content: '', category: '', language: 'en', source: '', verified: false });
+                    setKbModalOpen(true);
+                  }}
+                  className="px-4.5 py-2.5 rounded-full bg-[#f4a340] text-white text-xs sm:text-sm font-semibold hover:bg-[#e8933a] transition-all cursor-pointer shadow-sm"
+                >
+                  + Add Article
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-[#e8e3d8] text-[#6b6b6b]">
+                    <th className="py-4 px-4 font-semibold">Title</th>
+                    <th className="py-4 px-4 font-semibold">Category</th>
+                    <th className="py-4 px-4 font-semibold">Language</th>
+                    <th className="py-4 px-4 font-semibold">Status</th>
+                    <th className="py-4 px-4 font-semibold text-right">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {filteredKbDocs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center text-[#9b9b9b]">
+                        No matching documents found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredKbDocs.map((doc) => (
+                      <tr key={doc._id} className="border-b border-[#e8e3d8]/60 hover:bg-[#faf8f3]/60 transition-colors">
+                        <td className="py-4 px-4 font-semibold text-[#1a1a1a]">{doc.title}</td>
+                        <td className="py-4 px-4 text-[#6b6b6b]">{doc.category || '—'}</td>
+                        <td className="py-4 px-4 font-mono text-xs">{doc.language || 'en'}</td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-2xs font-semibold ${
+                            doc.verified ? 'bg-[#2d2d2d] text-white' : 'bg-[#faf8f3] border border-[#e8e3d8] text-[#6b6b6b]'
+                          }`}>
+                            {doc.verified ? 'Verified' : 'Unverified'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentDoc({ id: doc._id, ...doc });
+                              setKbModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#2d2d2d] hover:bg-[#2d2d2d]/10 mr-1.5 cursor-pointer transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteKb(doc._id)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#e85d4a] hover:bg-[#e85d4a]/10 cursor-pointer transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-
-      {/* Tab 3: Escalations */}
-      {activeTab === 'escalations' && (
-        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <h2 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', color: '#1e293b' }}>Human Escalations</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                <th style={{ padding: '10px 12px' }}>Time</th>
-                <th style={{ padding: '10px 12px' }}>Query</th>
-                <th style={{ padding: '10px 12px' }}>Status</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {escalations.length === 0 ? (
-                <tr><td colSpan={4} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No escalations found.</td></tr>
-              ) : (
-                escalations.map((esc) => (
-                  <tr key={esc._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '10px 12px', color: '#64748b' }}>{new Date(esc.timestamp).toLocaleString()}</td>
-                    <td style={{ padding: '10px 12px', fontWeight: 500 }}>{esc.query}</td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, background: esc.status === 'resolved' ? '#dcfce7' : '#fef3c7', color: esc.status === 'resolved' ? '#166534' : '#92400e' }}>
-                        {esc.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                      {esc.status !== 'resolved' && (
-                        <button
-                          onClick={() => {
-                            setSelectedEscalation(esc);
-                            setEscModalOpen(true);
-                          }}
-                          style={{ background: '#10b981', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          Resolve
-                        </button>
-                      )}
-                    </td>
+        {/* Tab 3: Escalations */}
+        {activeTab === 'escalations' && (
+          <div className="bg-white border border-[#e8e3d8] rounded-3xl p-8 sm:p-10 shadow-sm">
+            <h2 className="font-heading font-bold text-lg sm:text-xl text-[#1a1a1a] mb-6">
+              Human Escalation Inquiries
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-[#e8e3d8] text-[#6b6b6b]">
+                    <th className="py-4 px-4 font-semibold">Timestamp</th>
+                    <th className="py-4 px-4 font-semibold">Student / User Query</th>
+                    <th className="py-4 px-4 font-semibold">Status</th>
+                    <th className="py-4 px-4 font-semibold text-right">Action</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {escalations.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-10 text-center text-[#9b9b9b]">
+                        No escalations logged.
+                      </td>
+                    </tr>
+                  ) : (
+                    escalations.map((esc) => (
+                      <tr key={esc._id} className="border-b border-[#e8e3d8]/60 hover:bg-[#faf8f3]/60 transition-colors">
+                        <td className="py-4 px-4 text-[#6b6b6b] whitespace-nowrap">
+                          {new Date(esc.timestamp).toLocaleString()}
+                        </td>
+                        <td className="py-4 px-4 font-medium text-[#1a1a1a]">{esc.query}</td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-2xs font-semibold ${
+                            esc.status === 'resolved' ? 'bg-[#2d2d2d] text-white' : 'bg-[#f4a340]/20 text-[#d88325]'
+                          }`}>
+                            {esc.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-right">
+                          {esc.status !== 'resolved' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedEscalation(esc);
+                                setEscModalOpen(true);
+                              }}
+                              className="px-3.5 py-1.5 rounded-full bg-[#f4a340] text-white text-xs font-semibold hover:bg-[#e8933a] cursor-pointer shadow-2xs transition-colors"
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-      {/* Tab 4: Feedback */}
-      {activeTab === 'feedback' && (
-        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <h2 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', color: '#1e293b' }}>User Feedback</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                <th style={{ padding: '10px 12px' }}>Time</th>
-                <th style={{ padding: '10px 12px' }}>Type</th>
-                <th style={{ padding: '10px 12px' }}>Rating</th>
-                <th style={{ padding: '10px 12px' }}>Comment / Reason</th>
-                <th style={{ padding: '10px 12px' }}>User</th>
-              </tr>
-            </thead>
-            <tbody>
-              {feedbackList.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No feedback submissions recorded yet.</td></tr>
-              ) : (
-                feedbackList.map((item) => (
-                  <tr key={item._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '10px 12px', color: '#64748b' }}>{new Date(item.timestamp).toLocaleString()}</td>
-                    <td style={{ padding: '10px 12px' }}>{item.feedback_type}</td>
-                    <td style={{ padding: '10px 12px', fontWeight: 600, color: item.rating === 'helpful' ? '#10b981' : item.rating === 'not_helpful' ? '#ef4444' : '#1e293b' }}>
-                      {item.rating}
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>{item.comment || item.reason || '—'}</td>
-                    <td style={{ padding: '10px 12px', color: '#64748b' }}>{item.name || item.email || item.user_mode || 'Anonymous'}</td>
+        {/* Tab 4: Feedback */}
+        {activeTab === 'feedback' && (
+          <div className="bg-white border border-[#e8e3d8] rounded-3xl p-8 sm:p-10 shadow-sm">
+            <h2 className="font-heading font-bold text-lg sm:text-xl text-[#1a1a1a] mb-6">
+              User Satisfaction Feedback
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-[#e8e3d8] text-[#6b6b6b]">
+                    <th className="py-4 px-4 font-semibold w-44">Timestamp</th>
+                    <th className="py-4 px-4 font-semibold w-28">Type</th>
+                    <th className="py-4 px-4 font-semibold w-24">Rating</th>
+                    <th className="py-4 px-4 font-semibold">Comment / Reason</th>
+                    <th className="py-4 px-4 font-semibold w-48">Submitted By</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {feedbackList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center text-[#9b9b9b]">
+                        No user feedback recorded yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    feedbackList.map((item) => (
+                      <tr key={item._id} className="border-b border-[#e8e3d8]/60 hover:bg-[#faf8f3]/60 transition-colors">
+                        <td className="py-4 px-4 text-[#6b6b6b] whitespace-nowrap">
+                          {new Date(item.timestamp).toLocaleString()}
+                        </td>
+                        <td className="py-4 px-4 font-mono text-xs whitespace-nowrap">{item.feedback_type}</td>
+                        <td className="py-4 px-4 font-semibold text-[#1a1a1a] whitespace-nowrap">
+                          {item.rating}
+                        </td>
+                        <td className="py-4 px-4 text-[#2d2d2d] break-words max-w-md">{item.comment || item.reason || '—'}</td>
+                        <td className="py-4 px-4 text-[#6b6b6b] break-words">{item.name || item.email || item.user_mode || 'Anonymous'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </PageContainer>
 
       {/* Modal: KB Edit / Add */}
       {kbModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '500px' }}>
-            <h3 style={{ margin: '0 0 16px 0' }}>{currentDoc.id ? 'Edit Document' : 'Add Document'}</h3>
-            <form onSubmit={handleSaveKb} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="fixed inset-0 bg-[#2d2d2d]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-[#e8e3d8] p-6 sm:p-7 max-w-lg w-full shadow-lg">
+            <h3 className="font-heading font-bold text-lg text-[#1a1a1a] mb-4">
+              {currentDoc.id ? 'Edit Knowledge Base Article' : 'Add Knowledge Base Article'}
+            </h3>
+            <form onSubmit={handleSaveKb} className="flex flex-col gap-3.5">
               <input
                 type="text"
                 placeholder="Title"
                 value={currentDoc.title}
                 onChange={(e) => setCurrentDoc({ ...currentDoc, title: e.target.value })}
                 required
-                style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                className="w-full rounded-xl border border-[#e8e3d8] bg-[#faf8f3] px-3.5 py-2.5 text-xs sm:text-sm text-[#1a1a1a] outline-none focus:border-[#f4a340]"
               />
               <input
                 type="text"
-                placeholder="Category (e.g. Admissions, Fees)"
+                placeholder="Category (e.g. fees, admissions, hostel)"
                 value={currentDoc.category}
                 onChange={(e) => setCurrentDoc({ ...currentDoc, category: e.target.value })}
-                style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                className="w-full rounded-xl border border-[#e8e3d8] bg-[#faf8f3] px-3.5 py-2.5 text-xs sm:text-sm text-[#1a1a1a] outline-none focus:border-[#f4a340]"
               />
               <textarea
-                placeholder="Content"
+                placeholder="Article content"
                 rows={5}
                 value={currentDoc.content}
                 onChange={(e) => setCurrentDoc({ ...currentDoc, content: e.target.value })}
                 required
-                style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                className="w-full rounded-xl border border-[#e8e3d8] bg-[#faf8f3] px-3.5 py-2.5 text-xs sm:text-sm text-[#1a1a1a] outline-none focus:border-[#f4a340]"
               />
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+              <label className="flex items-center gap-2 text-xs sm:text-sm font-medium text-[#1a1a1a] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={currentDoc.verified}
                   onChange={(e) => setCurrentDoc({ ...currentDoc, verified: e.target.checked })}
+                  className="rounded border-[#e8e3d8] text-[#f4a340] focus:ring-[#f4a340]"
                 />
-                Verified Official Document
+                <span>Verified Official Article (eligible for chatbot retrieval)</span>
               </label>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" onClick={() => setKbModalOpen(false)} style={{ padding: '8px 16px', background: '#e2e8f0', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+
+              <div className="flex justify-end gap-2.5 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setKbModalOpen(false)}
+                  className="px-4 py-2 rounded-full border border-[#2d2d2d] text-xs sm:text-sm font-semibold text-[#2d2d2d] hover:bg-[#2d2d2d] hover:text-white transition-all cursor-pointer"
+                >
                   Cancel
                 </button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
-                  Save Document
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-full bg-[#f4a340] text-xs sm:text-sm font-semibold text-white hover:bg-[#e8933a] transition-all cursor-pointer shadow-sm"
+                >
+                  Save Article
                 </button>
               </div>
             </form>
@@ -660,92 +717,101 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* Modal: Resolve Escalation */}
+      {/* Modal: Resolve Escalation with KB creation toggle */}
       {escModalOpen && selectedEscalation && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ margin: '0 0 14px 0', fontSize: '1.2rem', color: '#1e293b' }}>Resolve Escalation</h3>
-            
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Unanswered User Question
+        <div className="fixed inset-0 bg-[#2d2d2d]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-[#e8e3d8] p-6 sm:p-7 max-w-lg w-full shadow-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="font-heading font-bold text-lg text-[#1a1a1a] mb-3">
+              Resolve Escalation
+            </h3>
+
+            <div className="bg-[#faf8f3] border border-[#e8e3d8] rounded-2xl p-4 mb-4">
+              <div className="text-2xs font-bold text-[#6b6b6b] uppercase tracking-wider mb-1">
+                Student Query
               </div>
-              <div style={{ fontSize: '0.92rem', color: '#0f172a', fontWeight: 600 }}>
+              <div className="text-xs sm:text-sm font-semibold text-[#1a1a1a]">
                 "{selectedEscalation.query}"
               </div>
             </div>
 
-            <form onSubmit={handleResolveEscalation} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <form onSubmit={handleResolveEscalation} className="flex flex-col gap-3.5">
               <div>
-                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
-                  Official Resolution / Answer:
+                <label className="block text-xs font-semibold text-[#1a1a1a] mb-1.5">
+                  Official Answer / Resolution:
                 </label>
                 <textarea
-                  placeholder="Type the official answer here (e.g., Dr. Victor Paul's cabin is located in AC 317, Second Floor, Old Academic Block)..."
+                  placeholder="Provide authoritative response..."
                   rows={4}
                   value={resolutionNotes}
                   onChange={(e) => setResolutionNotes(e.target.value)}
                   required
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.88rem', fontFamily: 'inherit', resize: 'vertical' }}
+                  className="w-full rounded-xl border border-[#e8e3d8] bg-[#faf8f3] px-3.5 py-2.5 text-xs sm:text-sm text-[#1a1a1a] outline-none focus:border-[#f4a340]"
                 />
               </div>
 
-              {/* Add to Knowledge Base Checkbox */}
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', fontWeight: 600, color: '#166534', cursor: 'pointer' }}>
+              {/* Add to KB card */}
+              <div className="bg-[#fef8ee] border border-[#f4a340]/30 rounded-2xl p-4">
+                <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#d88325] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={addToKb}
                     onChange={(e) => setAddToKb(e.target.checked)}
-                    style={{ width: '16px', height: '16px', accentColor: '#16a34a' }}
+                    className="w-4 h-4 rounded text-[#f4a340] focus:ring-[#f4a340]"
                   />
-                  <span>📚 Add this answer to Knowledge Base</span>
+                  <span>📚 Also add this answer to Knowledge Base</span>
                 </label>
-                <p style={{ margin: '4px 0 0 24px', fontSize: '0.75rem', color: '#15803d' }}>
-                  Automatically generates 384-dim MiniLM embeddings so the chatbot can answer future questions on this topic!
+                <p className="text-2xs text-[#888888] mt-1 pl-6">
+                  Embeds with sentence-transformers all-MiniLM-L6-v2 so future chatbot queries can retrieve this.
                 </p>
 
                 {addToKb && (
-                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '24px' }}>
+                  <div className="mt-3 pl-6 flex flex-col gap-2.5">
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '2px' }}>
-                        Document Category:
+                      <label className="block text-2xs font-bold text-[#6b6b6b] uppercase mb-1">
+                        Category
                       </label>
                       <select
                         value={kbCategory}
                         onChange={(e) => setKbCategory(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }}
+                        className="w-full rounded-xl border border-[#e8e3d8] bg-white px-3 py-2 text-xs text-[#1a1a1a] outline-none"
                       >
                         <option value="general">General / Campus Information</option>
-                        <option value="faculty">Faculty & Staff Directory</option>
-                        <option value="fees">Fee Structure & Payments</option>
-                        <option value="hostel">Hostels & Accommodation</option>
-                        <option value="admission_process">Admissions & Eligibility</option>
-                        <option value="contact">Contact & Helpline</option>
+                        <option value="faculty">Faculty &amp; Staff Directory</option>
+                        <option value="fees">Fee Structure &amp; Payments</option>
+                        <option value="hostel">Hostels &amp; Accommodation</option>
+                        <option value="admission_process">Admissions &amp; Eligibility</option>
+                        <option value="contact">Contact &amp; Helpline</option>
                       </select>
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '2px' }}>
-                        Document Title (Optional):
+                      <label className="block text-2xs font-bold text-[#6b6b6b] uppercase mb-1">
+                        Article Title (Optional)
                       </label>
                       <input
                         type="text"
-                        placeholder={`e.g. Faculty Location - ${selectedEscalation.query.slice(0, 30)}`}
+                        placeholder={`e.g. ${selectedEscalation.query.slice(0, 30)}`}
                         value={kbTitle}
                         onChange={(e) => setKbTitle(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }}
+                        className="w-full rounded-xl border border-[#e8e3d8] bg-white px-3 py-2 text-xs text-[#1a1a1a] outline-none"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" onClick={() => setEscModalOpen(false)} style={{ padding: '8px 16px', background: '#e2e8f0', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500 }}>
+              <div className="flex justify-end gap-2.5 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setEscModalOpen(false)}
+                  className="px-4 py-2 rounded-full border border-[#2d2d2d] text-xs sm:text-sm font-semibold text-[#2d2d2d] hover:bg-[#2d2d2d] hover:text-white transition-all cursor-pointer"
+                >
                   Cancel
                 </button>
-                <button type="submit" style={{ padding: '8px 18px', background: addToKb ? '#16a34a' : '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-full bg-[#f4a340] text-xs sm:text-sm font-semibold text-white hover:bg-[#e8933a] transition-all cursor-pointer shadow-sm"
+                >
                   {addToKb ? '✓ Resolve & Add to KB' : 'Mark as Resolved'}
                 </button>
               </div>

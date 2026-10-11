@@ -177,16 +177,31 @@ Rules:
 Standalone question:
 """
 
-    response = groq_client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0,
-    )
+    models_to_try = [
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-120b",
+    ]
+    response = None
+    for model_name in models_to_try:
+        try:
+            response = groq_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0,
+            )
+            if response:
+                break
+        except Exception:
+            continue
+
+    if not response:
+        return query
 
     return response.choices[0].message.content.strip()
 
@@ -222,14 +237,34 @@ def is_campus_navigation_query(query):
         if re.search(pat, q):
             return True
 
+    # If query is asking about quantity, count, fee, admission, rule, etc., do NOT classify as navigation
+    non_nav_intent = [
+        r'\bhow\s+many\b',
+        r'\bhow\s+much\b',
+        r'\bfee',
+        r'\bcost',
+        r'\brules?\b',
+        r'\ballotment\b',
+        r'\badmission\b',
+        r'\beligib',
+    ]
+    for nni in non_nav_intent:
+        if re.search(nni, q):
+            return False
+
     # Landmark mentions in combination with navigation verbs
     landmarks = [
-        "mess", "milma", "scoops", "millet", "academic block", "admin block",
-        "old academic", "new academic", "hostel", "warden", "canteen", "library",
-        "health centre", "medical room", "atm", "gym"
+        r"\bmess\b", r"\bmilma\b", r"\bscoops\b", r"\bmillet\b",
+        r"\bacademic\s+block\b", r"\badmin\s+block\b",
+        r"\bold\s+academic\b", r"\bnew\s+academic\b",
+        r"\bhostel\b", r"\bwarden\b", r"\bcanteen\b", r"\blibrary\b",
+        r"\bhealth\s+centre\b", r"\bmedical\s+room\b", r"\batm\b", r"\bgym\b"
     ]
-    nav_verbs = ["where", "how", "reach", "route", "direction", "locate", "situated", "spot", "find", "map"]
-    if any(lm in q for lm in landmarks) and any(nv in q for nv in nav_verbs):
+    nav_verbs = [
+        r"\bwhere\b", r"\breach\b", r"\broute\b", r"\bdirection\b",
+        r"\blocate\b", r"\bsituated\b", r"\bspot\b", r"\bmap\b"
+    ]
+    if any(re.search(lm, q) for lm in landmarks) and any(re.search(nv, q) for nv in nav_verbs):
         return True
 
     return False
@@ -322,16 +357,31 @@ User message:
 Category:
 """
 
-    response = groq_client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0,
-    )
+    models_to_try = [
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-120b",
+    ]
+    response = None
+    for model_name in models_to_try:
+        try:
+            response = groq_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0,
+            )
+            if response:
+                break
+        except Exception:
+            continue
+
+    if not response:
+        return "general"
 
     intent = (
         response.choices[0]

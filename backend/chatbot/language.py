@@ -55,6 +55,29 @@ Indian users very commonly type their native language using English/Latin letter
 
 Users also frequently CODE-SWITCH — mixing English words/acronyms (like CSE, B.Tech, JEE, IIIT, hostel, fee) into their native language. This is extremely common and does NOT make the message English.
 
+CRITICAL DISTINCTION — MALAYALAM (ml / Manglish) vs TAMIL (ta / Tanglish):
+Malayalam and Tamil in romanized script share some historical Dravidian roots, but have distinct vocabulary markers. Do NOT confuse them:
+- Malayalam / Manglish markers:
+  * "aanu", "aano" (is / are)
+  * "ethra", "ethrayaanu" (how much / how many)
+  * "enthu", "enthaanu" (what)
+  * "evide", "evideyannu" (where)
+  * "eppol", "eppozhaanu" (when)
+  * "engane", "enganeyaanu" (how)
+  * "undu", "undo" (there is / has)
+  * "cheyyan", "cheyyuka", "thudangum", "kittumo", "padikkan" (verbal forms)
+  * "-il" locative suffix (e.g. "campus il", "hostel il")
+
+- Tamil / Tanglish markers:
+  * "irukku", "irukka" (is / are / has)
+  * "evlo", "evvalavu", "ethana" (how much / how many)
+  * "enna", "ennathu" (what)
+  * "enga", "enge" (where)
+  * "eppo", "eppothu" (when)
+  * "epdi", "eppadi" (how)
+  * "panna", "pannalaam", "aagum", "kedaikkuma", "padikka" (verbal forms)
+  * "-la" locative suffix (e.g. "campus la", "hostel la")
+
 EXAMPLES:
 
 Hindi (native script):
@@ -76,6 +99,11 @@ Malayalam (romanized / Manglish):
 - "CSE fee ethra aanu" → en: "What is the CSE fee?"
 - "admission process entha" → en: "What is the admission process?"
 - "hostel il ethra per und" → en: "How many people are there in the hostel?"
+- "BTech admission eppol thudangum" → en: "When does B.Tech admission start?"
+- "hostel facility engane undu" → en: "How is the hostel facility?"
+- "campus il evide aanu library" → en: "Where is the library on campus?"
+- "application form submit cheyyan enthu cheyyanam" → en: "What should I do to submit the application form?"
+- "food nalla reethiyil kittumo" → en: "Will good food be provided?"
 
 Tamil (native script):
 - "பி.டெக் கட்டணம் என்ன?" → en: "What is the B.Tech fee?"
@@ -86,6 +114,11 @@ Tamil (romanized / Tanglish):
 - "admission process enna" → en: "What is the admission process?"
 - "CSE la ethana seats iruku" → en: "How many seats are there in CSE?"
 - "btech fees evvalavu" → en: "How much is the B.Tech fee?"
+- "BTech admission eppo start aagum" → en: "When will B.Tech admission start?"
+- "hostel facility epdi irukku" → en: "How is the hostel facility?"
+- "campus la enga library irukku" → en: "Where is the library on campus?"
+- "application form submit panna enna pannanum" → en: "What should be done to submit the application form?"
+- "food nalla irukkuma" → en: "Will the food be good?"
 
 Telugu (native script):
 - "బి.టెక్ ఫీజు ఎంత?" → en: "What is the B.Tech fee?"
@@ -154,16 +187,35 @@ def detect_and_translate(text):
 
     try:
 
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0,
-        )
+        models_to_try = [
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.8-27b",
+            "openai/gpt-oss-120b",
+        ]
+        response = None
+        for model_name in models_to_try:
+            try:
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0,
+                )
+                if response:
+                    break
+            except Exception:
+                continue
+
+        if not response:
+            return {
+                "language_code": "en",
+                "is_romanized": False,
+                "english_translation": text,
+            }
 
         raw = response.choices[0].message.content.strip()
 
@@ -236,15 +288,30 @@ Text:
 Translation:
 """
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0
-    )
+    models_to_try = [
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-120b",
+    ]
+    response = None
+    for model_name in models_to_try:
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0
+            )
+            if response:
+                break
+        except Exception:
+            continue
+
+    if not response:
+        return text
 
     return response.choices[0].message.content.strip()

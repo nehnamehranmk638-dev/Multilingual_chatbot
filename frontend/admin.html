@@ -5,60 +5,86 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IIIT Kottayam Chatbot Admin</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1, h2, h3 { margin-top: 0; color: #1a73e8; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f1e8; margin: 0; padding: 24px; color: #1a1a1a; }
+        .container { max-width: 1380px; margin: 0 auto; }
+        .card { background: #ffffff; border-radius: 24px; padding: 32px 36px; border: 1px solid #e8e3d8; box-shadow: 0 4px 16px rgba(0,0,0,0.03); margin-bottom: 24px; }
+        h1, h2, h3 { margin-top: 0; color: #1a1a1a; font-weight: 700; letter-spacing: -0.02em; }
+        h1 { font-size: 1.6rem; }
+        h2 { font-size: 1.3rem; }
         .hidden { display: none !important; }
         
         /* Login */
-        #login-view { max-width: 400px; margin: 100px auto; text-align: center; }
+        #login-view { max-width: 440px; margin: 80px auto; text-align: center; border-radius: 28px; padding: 40px 36px; }
         input[type="password"], input[type="text"], textarea, select {
-            width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+            width: 100%; padding: 12px 16px; margin-bottom: 16px; border: 1px solid #e8e3d8; background: #faf8f3; border-radius: 12px; box-sizing: border-box; font-size: 14px; color: #1a1a1a; outline: none; transition: border-color 0.2s;
         }
-        button { background: #1a73e8; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #1557b0; }
-        button.danger { background: #d93025; }
-        button.danger:hover { background: #b3261e; }
+        input:focus, textarea:focus, select:focus { border-color: #f4a340; background: #ffffff; }
+        button { background: #f4a340; color: white; border: none; padding: 10px 20px; border-radius: 9999px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        button:hover { background: #e8933a; transform: translateY(-1px); }
+        button.danger { background: #e85d4a; }
+        button.danger:hover { background: #d64a37; }
         
         /* Tabs */
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab-btn { background: #e8eaed; color: #3c4043; padding: 10px 20px; font-weight: bold; border-radius: 4px 4px 0 0; }
-        .tab-btn.active { background: #1a73e8; color: white; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 24px; background: #ffffff; padding: 6px; border-radius: 16px; border: 1px solid #e8e3d8; width: fit-content; }
+        .tab-btn { background: transparent; color: #6b6b6b; padding: 10px 22px; font-weight: 600; border-radius: 12px; cursor: pointer; border: none; }
+        .tab-btn.active { background: #f4a340; color: white; box-shadow: 0 2px 6px rgba(244,163,64,0.3); }
+        .tab-btn:hover:not(.active) { background: #faf8f3; color: #1a1a1a; }
         
         /* Tables */
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #f8f9fa; }
-        .actions-col { width: 150px; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 20px; }
+        th, td { padding: 16px 18px; text-align: left; border-bottom: 1px solid #e8e3d8; font-size: 14px; vertical-align: middle; }
+        th { background-color: #faf8f3; color: #6b6b6b; font-weight: 600; }
+        tbody tr:hover { background-color: #faf8f3; }
+        .actions-col { width: 170px; text-align: right; }
+        
+        /* Action buttons inside table */
+        .btn-action-edit {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            padding: 6px 14px !important;
+            font-size: 12px !important;
+            border-radius: 8px !important;
+            margin-right: 8px !important;
+            display: inline-block !important;
+        }
+        .btn-action-edit:hover { background: #1a1a1a !important; }
+        .btn-action-delete {
+            background: #e85d4a !important;
+            color: #ffffff !important;
+            padding: 6px 14px !important;
+            font-size: 12px !important;
+            border-radius: 8px !important;
+            display: inline-block !important;
+        }
+        .btn-action-delete:hover { background: #d64a37 !important; }
         
         /* Modals */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(45,45,45,0.45); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 32px; border-radius: 24px; border: 1px solid #e8e3d8; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.12); }
         
-        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; color: white; }
-        .bg-green { background: #34a853; }
-        .bg-red { background: #ea4335; }
-        .bg-orange { background: #fbbc04; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+        .bg-green { background: #2d2d2d; color: #ffffff; }
+        .bg-red { background: #faf8f3; color: #e85d4a; border: 1px solid #e85d4a; }
+        .bg-orange { background: #fef8ee; color: #d88325; border: 1px solid #f4a340; }
         
-        .error-msg { color: #d93025; margin-bottom: 15px; font-size: 14px; }
-        .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .error-msg { color: #e85d4a; margin-bottom: 15px; font-size: 14px; font-weight: 500; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 
         /* Analytics – KPI Cards */
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 8px; }
-        .kpi-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 18px 14px; text-align: center; }
-        .kpi-card.kpi-green { border-left: 4px solid #34a853; }
-        .kpi-card.kpi-red   { border-left: 4px solid #ea4335; }
-        .kpi-card.kpi-orange{ border-left: 4px solid #fbbc04; }
-        .kpi-value { font-size: 2rem; font-weight: 700; color: #1a73e8; line-height: 1.1; }
-        .kpi-label { font-size: 0.8rem; color: #666; margin-top: 4px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 12px; }
+        .kpi-card { background: #faf8f3; border: 1px solid #e8e3d8; border-radius: 18px; padding: 22px 16px; text-align: center; }
+        .kpi-card.kpi-green { border-bottom: 4px solid #2d2d2d; }
+        .kpi-card.kpi-red   { border-bottom: 4px solid #e85d4a; }
+        .kpi-card.kpi-orange{ border-bottom: 4px solid #f4a340; }
+        .kpi-value { font-size: 2.2rem; font-weight: 700; color: #1a1a1a; line-height: 1.1; }
+        .kpi-label { font-size: 0.82rem; color: #6b6b6b; margin-top: 6px; font-weight: 500; }
 
         /* Analytics – language bars */
-        .lang-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.88rem; }
-        .lang-bar-label { width: 90px; text-align: right; color: #444; flex-shrink: 0; }
-        .lang-bar-track { flex: 1; background: #e8eaed; border-radius: 4px; height: 18px; overflow: hidden; }
-        .lang-bar-fill { height: 100%; background: #1a73e8; border-radius: 4px; transition: width 0.4s ease; }
-        .lang-bar-count { width: 40px; color: #555; flex-shrink: 0; }
+        .lang-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 0.9rem; }
+        .lang-bar-label { width: 100px; text-align: right; color: #6b6b6b; font-weight: 500; flex-shrink: 0; }
+        .lang-bar-track { flex: 1; background: #ffffff; border: 1px solid #e8e3d8; border-radius: 9999px; height: 16px; overflow: hidden; padding: 2px; }
+        .lang-bar-fill { height: 100%; background: #f4a340; border-radius: 9999px; transition: width 0.4s ease; }
+        .lang-bar-count { width: 44px; color: #1a1a1a; font-weight: 700; flex-shrink: 0; }
 
         /* Analytics – stat boxes */
         .stats-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -266,6 +292,32 @@
             
             <label>Admin Response</label>
             <textarea id="esc-response" rows="4" placeholder="How was this resolved?"></textarea>
+            
+            <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+                    <input type="checkbox" id="esc-add-to-kb" onchange="toggleEscKbFields(this.checked)" style="width: auto; margin: 0;">
+                    <span>Also add this as a Knowledge Base article</span>
+                </label>
+                <div id="esc-kb-fields" class="hidden" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">KB Title</label>
+                        <input type="text" id="esc-kb-title" placeholder="e.g. JEE Main Cutoff & Ranks">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; margin-bottom: 2px;">Category</label>
+                        <select id="esc-kb-category" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="admission_process">Admissions & Eligibility (admission_process)</option>
+                            <option value="fees">Fee Structure (fees)</option>
+                            <option value="cutoffs">Cutoffs & Ranks (cutoffs)</option>
+                            <option value="hostel">Hostels & Accommodation (hostel)</option>
+                            <option value="scholarships">Scholarships (scholarships)</option>
+                            <option value="faculty">Faculty & Staff (faculty)</option>
+                            <option value="general">General / Campus Information (general)</option>
+                            <option value="contact">Contact & Helpline (contact)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
             
             <div style="margin-top: 15px; display: flex; gap: 10px;">
                 <button onclick="submitEscalation()">Resolve</button>
@@ -585,20 +637,76 @@
             });
         }
         
+        function toggleEscKbFields(checked) {
+            const kbFields = document.getElementById('esc-kb-fields');
+            if (checked) {
+                kbFields.classList.remove('hidden');
+            } else {
+                kbFields.classList.add('hidden');
+            }
+        }
+
         function openEscModal(id) {
             const esc = currentEscalations.find(e => e._id === id);
             document.getElementById('esc-id').value = id;
             document.getElementById('esc-query-text').innerText = esc.query;
             document.getElementById('esc-response').value = '';
+            
+            // Reset KB toggle and pre-fill title
+            const checkbox = document.getElementById('esc-add-to-kb');
+            checkbox.checked = false;
+            toggleEscKbFields(false);
+            
+            // Pre-fill a reasonable title derived from the query
+            const trimmedQuery = (esc.query || '').trim();
+            const derivedTitle = trimmedQuery.length > 60 ? trimmedQuery.slice(0, 57) + '...' : trimmedQuery;
+            document.getElementById('esc-kb-title').value = derivedTitle;
+            
+            // Auto-detect category from query keywords if possible
+            const qLower = trimmedQuery.toLowerCase();
+            const categorySelect = document.getElementById('esc-kb-category');
+            if (qLower.includes('fee') || qLower.includes('tuition')) {
+                categorySelect.value = 'fees';
+            } else if (qLower.includes('hostel') || qLower.includes('mess') || qLower.includes('room')) {
+                categorySelect.value = 'hostel';
+            } else if (qLower.includes('rank') || qLower.includes('cutoff') || qLower.includes('closing') || qLower.includes('opening')) {
+                categorySelect.value = 'admission_process';
+            } else if (qLower.includes('scholarship')) {
+                categorySelect.value = 'scholarships';
+            } else if (qLower.includes('faculty') || qLower.includes('dr.') || qLower.includes('professor') || qLower.includes('cabin')) {
+                categorySelect.value = 'faculty';
+            } else {
+                categorySelect.value = 'admission_process';
+            }
+
             document.getElementById('esc-modal').classList.remove('hidden');
         }
         
         async function submitEscalation() {
             const id = document.getElementById('esc-id').value;
             const response = document.getElementById('esc-response').value;
+            const addToKb = document.getElementById('esc-add-to-kb').checked;
+            const title = document.getElementById('esc-kb-title').value.trim();
+            const category = document.getElementById('esc-kb-category').value;
+            
+            if (!response.trim()) {
+                alert('Please provide an admin response.');
+                return;
+            }
+
+            const payload = {
+                response,
+                add_to_kb: addToKb,
+                title: title,
+                category: category
+            };
             
             try {
-                await apiFetch(`/escalations/${id}/resolve/`, 'POST', { response });
+                const res = await apiFetch(`/escalations/${id}/resolve/`, 'POST', payload);
+                if (res.kb_id) {
+                    alert('Escalation resolved and added to Knowledge Base!');
+                    loadKb(); // Refresh KB list so it appears in Knowledge Base tab immediately
+                }
                 closeModal('esc-modal');
                 loadEscalations();
             } catch (err) {

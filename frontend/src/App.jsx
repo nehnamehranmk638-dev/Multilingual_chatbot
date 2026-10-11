@@ -12,6 +12,7 @@ import FeedbackDialog from './components/FeedbackDialog';
 import LogoutConfirmModal from './components/LogoutConfirmModal';
 import HubDashboard from './components/HubDashboard';
 import HomeDashboard from './app/HomeDashboard';
+import LandingPage from './app/components/LandingPage';
 import Sidebar from './components/Sidebar';
 import { fetchSessions, fetchSessionHistory, sendChatMessage, deleteSession } from './api';
 import { Globe2, Sparkles, MapPin, Compass, Trash2 } from 'lucide-react';
@@ -48,7 +49,10 @@ export default function App() {
     if (p.startsWith('/login')) return 'login';
     if (p.startsWith('/hub')) return 'hub';
     if (p.startsWith('/chat')) return 'chat';
-    return localStorage.getItem('authToken') ? 'hub' : 'login';
+    if (p === '/' || p === '') {
+      return localStorage.getItem('authToken') ? 'hub' : 'landing';
+    }
+    return localStorage.getItem('authToken') ? 'hub' : 'landing';
   };
 
   const [currentRoute, setCurrentRoute] = useState(() => getRouteFromPath(window.location.pathname));
@@ -590,6 +594,10 @@ export default function App() {
   // ----------------------------------------------------------
   // STUDENT / PARENT ROUTES
   // ----------------------------------------------------------
+  if (currentRoute === 'landing' && !currentUser) {
+    return <LandingPage onNavigate={navigate} />;
+  }
+
   if (currentRoute === 'signup') {
     return <SignupPage onSignupSuccess={handleLoginSuccess} onNavigate={navigate} />;
   }
@@ -601,7 +609,7 @@ export default function App() {
   // If in Hub view, show Hub Dashboard
   if (activeView === 'hub') {
     return (
-      <div className="app-container">
+      <>
         <HubDashboard
           currentUser={currentUser}
           selectedLanguage={selectedLanguage}
@@ -650,7 +658,7 @@ export default function App() {
           title="Confirm Logout"
           message="Are you sure you want to log out?"
         />
-      </div>
+      </>
     );
   }
 

@@ -7,6 +7,7 @@ import {
   MessageSquareHeart,
 } from 'lucide-react';
 import HubCard from './components/HubCard';
+import PageContainer from './components/ui/PageContainer';
 import '../styles/fonts.css';
 
 interface User {
@@ -36,7 +37,7 @@ export default function HomeDashboard({
 
   return (
     <div className="min-h-screen w-full bg-[#0a0e1a] p-0 font-['Inter',sans-serif] text-slate-100 antialiased selection:bg-indigo-500/30 flex flex-col justify-start">
-      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1 flex flex-col">
+      <PageContainer size="medium" className="py-6 sm:py-10 flex-1 flex flex-col">
         {/* Header Bar */}
         <header className="flex items-center justify-between py-3 sm:py-4">
           {/* Left cluster */}
@@ -115,7 +116,7 @@ export default function HomeDashboard({
             onClick={onOpenFeedback}
           />
         </main>
-      </div>
+      </PageContainer>
     </div>
   );
 }

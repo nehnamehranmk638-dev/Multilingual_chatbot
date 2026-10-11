@@ -237,14 +237,14 @@ def retrieve_context(
             ).limit(top_k * 2))
             for cd in cat_docs:
                 if cd.get("title") not in existing_titles:
-                    cd["score"] = 0.95
+                    cd["score"] = 0.55
                     docs.append(cd)
                     existing_titles.add(cd.get("title"))
                 else:
-                    # If already present with a lower score, bump score
+                    # If already present with a lower score, bump score slightly
                     for existing_d in docs:
                         if existing_d.get("title") == cd.get("title"):
-                            existing_d["score"] = max(existing_d.get("score", 0), 0.95)
+                            existing_d["score"] = max(existing_d.get("score", 0), 0.55)
 
     # --------------------------------------------------
     # Debugging information
@@ -491,29 +491,44 @@ Answer:
     # Generate answer
     # --------------------------------------------------
 
-    response = groq_client.chat.completions.create(
-        model="openai/gpt-oss-20b",
+    models_to_try = [
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-120b",
+    ]
 
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
+    answer = None
+    for model_name in models_to_try:
+        try:
+            extra_kwargs = {}
+            if "openai/gpt-oss" in model_name:
+                extra_kwargs["reasoning_effort"] = "low"
+            response = groq_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.2,
+                **extra_kwargs
+            )
+            answer = (
+                response
+                .choices[0]
+                .message
+                .content
+                .strip()
+            )
+            if answer:
+                break
+        except Exception as e:
+            print(f"Warning: model {model_name} failed: {e}. Trying next fallback...")
+            continue
 
-        reasoning_effort="low",
-
-        temperature=0.2,
-    )
-
-
-    answer = (
-        response
-        .choices[0]
-        .message
-        .content
-        .strip()
-    )
+    if not answer:
+        answer = "I couldn't generate an answer at this moment. Please try again shortly."
 
 
     # --------------------------------------------------
