@@ -85,41 +85,80 @@ export default function SignupPage({ onSignupSuccess }) {
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-4">
+        {/* Container replacing <form> to permanently prevent browser autofill/address profiling */}
+        <div
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleSubmit(e);
+            }
+          }}
+          className="flex flex-col gap-4"
+        >
+          {/* Dummy hidden decoy inputs to absorb aggressive Chromium autofill scans */}
+          <input type="text" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+          <input type="password" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+
           <Input
             label="Full Name"
             type="text"
+            id="field_fn_q78"
+            name="field_fn_q78"
             value={form.name}
             onChange={set('name')}
-            autoComplete="name"
+            autoComplete="nope"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             required
           />
 
           <Input
             label="Email Address"
-            type="email"
+            type="text"
+            inputMode="email"
+            id="field_em_x92"
+            name="field_em_x92"
             value={form.email}
             onChange={set('email')}
-            autoComplete="off"
+            autoComplete="nope"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             required
           />
 
           <Input
             label="Password"
             type="password"
+            id="field_pw_k34"
+            name="field_pw_k34"
             value={form.password}
             onChange={set('password')}
             autoComplete="new-password"
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             required
           />
 
           <Input
             label="Confirm Password"
             type="password"
+            id="field_cpw_m81"
+            name="field_cpw_m81"
             value={form.confirm_password}
             onChange={set('confirm_password')}
             autoComplete="new-password"
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             required
           />
 
@@ -158,7 +197,8 @@ export default function SignupPage({ onSignupSuccess }) {
           </div>
 
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             variant="primary"
             size="md"
             disabled={loading}
@@ -166,7 +206,7 @@ export default function SignupPage({ onSignupSuccess }) {
           >
             {loading ? 'Creating account…' : 'Sign Up'}
           </Button>
-        </form>
+        </div>
 
         {/* Footer Link */}
         <div className="mt-6 pt-5 border-t border-[#e8e3d8] text-center text-xs sm:text-sm text-[#6b6b6b]">

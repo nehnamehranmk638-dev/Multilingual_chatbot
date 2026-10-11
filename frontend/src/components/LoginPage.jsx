@@ -80,28 +80,55 @@ export default function LoginPage({ onLoginSuccess }) {
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-4">
+        {/* Container replacing <form> to permanently prevent browser autofill/address profiling */}
+        <div
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleSubmit(e);
+            }
+          }}
+          className="flex flex-col gap-4"
+        >
+          {/* Dummy hidden decoy inputs to absorb aggressive Chromium autofill scans */}
+          <input type="text" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+          <input type="password" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+
           <Input
             label="Email Address"
-            type="email"
+            type="text"
+            inputMode="email"
+            id="field_login_id_z44"
+            name="field_login_id_z44"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            autoComplete="off"
+            autoComplete="nope"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             required
           />
 
           <Input
             label="Password"
             type="password"
+            id="field_login_pw_w88"
+            name="field_login_pw_w88"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
+            autoComplete="new-password"
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             required
           />
 
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             variant="primary"
             size="md"
             disabled={loading}
@@ -109,7 +136,7 @@ export default function LoginPage({ onLoginSuccess }) {
           >
             {loading ? 'Signing in…' : 'Sign In'}
           </Button>
-        </form>
+        </div>
 
         {/* Footer Navigation Switchers */}
         <div className="mt-6 pt-5 border-t border-[#e8e3d8] flex flex-col items-center gap-2.5 text-xs sm:text-sm text-[#6b6b6b]">

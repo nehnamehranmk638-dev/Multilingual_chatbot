@@ -82,15 +82,28 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onNavigateToApp })
           </div>
         )}
 
-        {/* Form with autofill prevention */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4" autoComplete="off">
+        {/* Container replacing <form> to permanently prevent browser autofill/address profiling */}
+        <div
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleSubmit(e);
+            }
+          }}
+          className="flex flex-col gap-4"
+        >
+          {/* Dummy hidden decoy inputs to absorb aggressive Chromium autofill scans */}
+          <input type="text" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+          <input type="password" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+
           <Input
             label="Username or Official Email"
             type="text"
+            id="field_adm_usr_id"
+            name="field_adm_usr_id"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            autoComplete="off"
-            name="admin_user_identifier"
+            autoComplete="nope"
             disabled={loading}
             autoFocus
             required
@@ -99,16 +112,18 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onNavigateToApp })
           <Input
             label="Admin Password"
             type="password"
+            id="field_adm_pwd_val"
+            name="field_adm_pwd_val"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
-            name="admin_secret_key"
             disabled={loading}
             required
           />
 
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             variant="primary"
             size="md"
             disabled={loading}
@@ -116,7 +131,7 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onNavigateToApp })
           >
             {loading ? 'Authenticating…' : 'Access Portal'}
           </Button>
-        </form>
+        </div>
 
         {/* Footer Navigation */}
         <div className="mt-6 pt-5 border-t border-[#e8e3d8] text-center text-xs sm:text-sm text-[#6b6b6b]">
