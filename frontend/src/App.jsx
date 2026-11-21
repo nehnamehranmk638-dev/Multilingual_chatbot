@@ -17,9 +17,12 @@ import Sidebar from './components/Sidebar';
 import { fetchSessions, fetchSessionHistory, sendChatMessage, deleteSession } from './api';
 import { Globe2, Sparkles, MapPin, Compass, Trash2 } from 'lucide-react';
 
-const API_BASE_URL = (typeof window !== 'undefined' && window.location.protocol === 'https:')
-  ? '/api'
-  : 'http://127.0.0.1:8000/api';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
+const API_BASE_URL = BACKEND_URL
+  ? `${BACKEND_URL.replace(/\/+$/, '')}/api`
+  : (typeof window !== 'undefined' && window.location.protocol === 'https:'
+    ? '/api'
+    : 'http://127.0.0.1:8000/api');
 
 export default function App() {
   const [messages, setMessages] = useState([]);

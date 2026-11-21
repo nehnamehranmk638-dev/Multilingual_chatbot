@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-x^e%h7gfp+s%_^5pvxi=-cw76ukg0%351pyt3=8zmjecdw2hz^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -141,15 +141,7 @@ REST_FRAMEWORK = {
     }
 }
 
-CORS_ALLOW_ALL_ORIGINS = DEBUG
-
-if not DEBUG:
-    CORS_ALLOWED_ORIGINS = [
-        "https://chatbot.iiitkottayam.ac.in",
-        "https://admissions.iiitkottayam.ac.in",
-        "http://localhost:5173",
-        "https://localhost:5173",
-    ]
+CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_HEADERS = [
     'accept',
