@@ -1,4 +1,3 @@
-from sentence_transformers import SentenceTransformer
 from groq import Groq
 from decouple import config
 
@@ -13,27 +12,28 @@ import re
 
 
 # --------------------------------------------------
-# Embedding model
+# Embedding model (Lazy-loaded to eliminate startup latency and prevent worker timeouts)
 # --------------------------------------------------
 
-# IMPORTANT:
-# This MUST be the same embedding model that was used
-# when the documents were inserted into MongoDB.
-#
-# Your current ingestion/retrieval setup uses this model.
+_embedding_model = None
 
-embedding_model = SentenceTransformer(
-    "all-MiniLM-L6-v2"
-)
+class _LazyEmbeddingModel:
+    def encode(self, *args, **kwargs):
+        global _embedding_model
+        if _embedding_model is None:
+            from sentence_transformers import SentenceTransformer
+            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        return _embedding_model.encode(*args, **kwargs)
+
+embedding_model = _LazyEmbeddingModel()
 
 
 # --------------------------------------------------
 # Groq client
 # --------------------------------------------------
 
-groq_client = Groq(
-    api_key=config("GROQ_API_KEY")
-)
+_groq_api_key = config("GROQ_API_KEY", default="")
+groq_client = Groq(api_key=_groq_api_key) if _groq_api_key else None
 
 
 # --------------------------------------------------

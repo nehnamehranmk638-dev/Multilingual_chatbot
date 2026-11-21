@@ -25,9 +25,8 @@ from .eligibility import check_eligibility
 # GROQ CLIENT
 # ============================================================
 
-groq_client = Groq(
-    api_key=config("GROQ_API_KEY")
-)
+_groq_api_key = config("GROQ_API_KEY", default="")
+groq_client = Groq(api_key=_groq_api_key) if _groq_api_key else None
 
 
 # ============================================================
