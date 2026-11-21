@@ -130,7 +130,26 @@ MAILERS = {
     },
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/minute',
+        'user': '180/minute',
+    }
+}
+
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+if not DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        "https://chatbot.iiitkottayam.ac.in",
+        "https://admissions.iiitkottayam.ac.in",
+        "http://localhost:5173",
+        "https://localhost:5173",
+    ]
 
 CORS_ALLOW_HEADERS = [
     'accept',

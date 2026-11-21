@@ -16,6 +16,11 @@ db.sqlite3
 # IDE
 .vscode/
 
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+
 # OS
 .DS_Store
 Thumbs.db

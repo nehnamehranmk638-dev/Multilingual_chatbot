@@ -11,3 +11,4 @@ gTTS
 requests
 beautifulsoup4
 pypdf
+gunicorn
