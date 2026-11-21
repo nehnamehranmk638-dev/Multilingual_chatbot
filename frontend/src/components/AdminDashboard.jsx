@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, X, Check, BookOpen, AlertCircle, RefreshCw } from 'lucide-react';
 import LogoutConfirmModal from './LogoutConfirmModal';
 import PageContainer from '../app/components/ui/PageContainer';
+import { API_BASE_URL } from '../api';
 
-const API_BASE = 'http://127.0.0.1:8000/api/admin';
+const API_BASE = `${API_BASE_URL}/admin`;
 
 export default function AdminDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('analytics'); // Default to Analytics tab
@@ -238,7 +239,7 @@ export default function AdminDashboard({ onLogout }) {
   // ----------------------------------------------------
   const handleLogout = async () => {
     try {
-      await fetch('http://127.0.0.1:8000/api/admin/logout/', {
+      await fetch(`${API_BASE}/logout/`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${adminToken}` },
       });

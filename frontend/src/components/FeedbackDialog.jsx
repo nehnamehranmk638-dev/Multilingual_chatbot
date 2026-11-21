@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+import { API_BASE_URL } from '../api';
 
 // Reasons shown when a user marks a response as "Not Helpful"
 const NOT_HELPFUL_REASONS = [

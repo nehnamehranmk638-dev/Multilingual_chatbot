@@ -191,7 +191,7 @@ export default function App() {
     const token = localStorage.getItem('authToken');
     if (token) {
       try {
-        await fetch('http://127.0.0.1:8000/api/auth/logout/', {
+        await fetch(`${API_BASE_URL}/auth/logout/`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });

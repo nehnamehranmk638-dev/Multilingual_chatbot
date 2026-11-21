@@ -3,8 +3,7 @@ import Input from '../app/components/ui/Input';
 import Button from '../app/components/ui/Button';
 import PageContainer from '../app/components/ui/PageContainer';
 import { StarDoodle, CircleDoodle, SquiggleDoodle } from '../app/components/ui/Doodles';
-
-const API = 'http://127.0.0.1:8000/api';
+import { API_BASE_URL as API } from '../api';
 
 export default function SignupPage({ onSignupSuccess }) {
   const [form, setForm] = useState({

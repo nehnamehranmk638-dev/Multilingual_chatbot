@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Volume2, VolumeX, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-react';
 import FeedbackDialog from './FeedbackDialog';
-import { synthesizeSpeech, stopSpeech } from '../api';
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+import { synthesizeSpeech, stopSpeech, API_BASE_URL } from '../api';
 
 
 // Helper: Check if response indicates information is not available in knowledge base

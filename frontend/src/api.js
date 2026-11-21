@@ -1,5 +1,5 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
-const API_BASE_URL = BACKEND_URL
+export const API_BASE_URL = BACKEND_URL
   ? `${BACKEND_URL.replace(/\/+$/, '')}/api`
   : (typeof window !== 'undefined' && window.location.protocol === 'https:'
     ? '/api'
