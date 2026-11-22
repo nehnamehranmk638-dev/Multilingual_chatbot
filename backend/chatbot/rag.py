@@ -162,30 +162,45 @@ def retrieve_context(
         print(f"Atlas Vector Search unavailable ({e}), using in-memory similarity fallback.")
 
     # --------------------------------------------------
-    # In-memory fallback with larger candidate pool
+    # In-memory fallback with filtered candidate pool (optimized for fast cloud response)
     # --------------------------------------------------
 
     if not docs:
-        all_docs = list(knowledge_base.find({"verified": True}, {"_id": 0}))
-        if all_docs:
+        STOPWORDS = {"how", "many", "what", "is", "the", "are", "there", "in", "for", "to", "at", "of", "a", "an", "do", "does", "can", "tell", "me", "about"}
+        words = [re.escape(w.lower()) for w in re.findall(r'\b[a-zA-Z0-9]+\b', query) if w.lower() not in STOPWORDS and len(w) > 2]
+        
+        query_filter = {"verified": True}
+        if words:
+            regex_pattern = "|".join(words[:6])
+            query_filter["$or"] = [
+                {"title": {"$regex": regex_pattern, "$options": "i"}},
+                {"content": {"$regex": regex_pattern, "$options": "i"}},
+            ]
+        
+        candidate_docs = list(knowledge_base.find(query_filter, {"_id": 0}).limit(50))
+        if not candidate_docs:
+            candidate_docs = list(knowledge_base.find({"verified": True}, {"_id": 0}).limit(40))
+
+        if candidate_docs:
             import numpy as np
-            q_vec = np.array(query_vector)
+            q_vec = np.array(query_vector, dtype=np.float32)
+            norm_q = np.linalg.norm(q_vec)
             scored = []
-            for d in all_docs:
+            for d in candidate_docs:
+                sim = 0.5
                 if "embedding" in d:
-                    d_vec = np.array(d["embedding"])
-                    norm_q = np.linalg.norm(q_vec)
+                    d_vec = np.array(d["embedding"], dtype=np.float32)
                     norm_d = np.linalg.norm(d_vec)
                     if norm_q > 0 and norm_d > 0:
                         sim = float(np.dot(q_vec, d_vec) / (norm_q * norm_d))
-                        scored.append((sim, d))
-            scored.sort(key=lambda x: x[0], reverse=True)
-            # Use a larger candidate pool (top 60) for hybrid ranking
-            candidate_pool_size = max(top_k * 10, 60)
-            for sim, d in scored[:candidate_pool_size]:
                 doc_copy = {k: v for k, v in d.items() if k != "embedding"}
                 doc_copy["score"] = sim
                 doc_copy["raw_sim"] = sim
+                scored.append((sim, doc_copy))
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            candidate_pool_size = max(top_k * 10, 40)
+            for sim, doc_copy in scored[:candidate_pool_size]:
                 docs.append(doc_copy)
 
     # --------------------------------------------------

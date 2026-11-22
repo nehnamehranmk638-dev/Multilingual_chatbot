@@ -3,17 +3,6 @@ from pymongo import MongoClient
 from bson import ObjectId
 from decouple import config
 
-# Ensure DNS resolution works reliably
-try:
-    import dns.resolver
-    try:
-        dns.resolver.resolve('cluster0.im9swyw.mongodb.net', 'A')
-    except Exception:
-        dns.resolver.default_resolver = dns.resolver.Resolver()
-        dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1']
-except Exception:
-    pass
-
 try:
     import certifi
     ca_file = certifi.where()
@@ -29,7 +18,11 @@ MONGO_URI = (
 )
 
 mongo_kwargs = {
-    "serverSelectionTimeoutMS": 5000,
+    "serverSelectionTimeoutMS": 30000,
+    "connectTimeoutMS": 20000,
+    "socketTimeoutMS": 30000,
+    "maxPoolSize": 50,
+    "retryWrites": True,
 }
 if ca_file:
     mongo_kwargs["tlsCAFile"] = ca_file

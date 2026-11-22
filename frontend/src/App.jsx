@@ -494,7 +494,7 @@ export default function App() {
           sender: 'bot',
 
           content:
-            '⚠️ Unable to connect to the backend server. Please make sure the Django server is running on http://127.0.0.1:8000.',
+            '⚠️ The server took too long to respond. Please try asking again in a moment.',
 
           message_id: null,
 
