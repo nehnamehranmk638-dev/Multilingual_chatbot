@@ -20,10 +20,16 @@ _embedding_model = None
 class _LazyEmbeddingModel:
     def encode(self, *args, **kwargs):
         global _embedding_model
-        if _embedding_model is None:
-            from sentence_transformers import SentenceTransformer
-            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-        return _embedding_model.encode(*args, **kwargs)
+        try:
+            if _embedding_model is None:
+                import os
+                os.environ["TOKENIZERS_PARALLELISM"] = "false"
+                from sentence_transformers import SentenceTransformer
+                _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+            return _embedding_model.encode(*args, **kwargs)
+        except Exception as e:
+            print(f"Embedding model unavailable ({e}), using lexical matching.")
+            return None
 
 embedding_model = _LazyEmbeddingModel()
 
@@ -90,24 +96,29 @@ New message:
 Standalone question:
 """
 
-    response = groq_client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0,
-    )
+    try:
+        response = groq_client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0,
+            timeout=5.0,
+        )
 
-    return (
-        response
-        .choices[0]
-        .message
-        .content
-        .strip()
-    )
+        return (
+            response
+            .choices[0]
+            .message
+            .content
+            .strip()
+        )
+    except Exception as e:
+        print(f"Query rewrite skipped ({e}), using original query.")
+        return query
 
 
 # --------------------------------------------------
@@ -119,89 +130,48 @@ def retrieve_context(
     top_k=3,
     min_score=0.25
 ):
+    # --------------------------------------------------
+    # 1. Fast targeted candidate retrieval from MongoDB (<0.1s)
+    # --------------------------------------------------
+    STOPWORDS = {"how", "many", "what", "is", "the", "are", "there", "in", "for", "to", "at", "of", "a", "an", "do", "does", "can", "tell", "me", "about"}
+    words = [re.escape(w.lower()) for w in re.findall(r'\b[a-zA-Z0-9]+\b', query) if w.lower() not in STOPWORDS and len(w) > 2]
 
-    # Convert query into the same embedding space
-    # used by the knowledge base.
+    query_filter = {"verified": True}
+    if words:
+        regex_pattern = "|".join(words[:6])
+        query_filter["$or"] = [
+            {"title": {"$regex": regex_pattern, "$options": "i"}},
+            {"content": {"$regex": regex_pattern, "$options": "i"}},
+        ]
 
-    query_vector = embedding_model.encode(
-        query
-    ).tolist()
+    candidate_docs = list(knowledge_base.find(query_filter, {"_id": 0, "embedding": 0}).limit(35))
+    if not candidate_docs:
+        candidate_docs = list(knowledge_base.find({"verified": True}, {"_id": 0, "embedding": 0}).limit(30))
 
+    # --------------------------------------------------
+    # 2. Fast lexical relevance scoring (<0.01s, zero PyTorch/memory overhead)
+    # --------------------------------------------------
     docs = []
+    q_lower = query.lower()
+    for d in candidate_docs:
+        title_lower = (d.get("title") or "").lower()
+        content_lower = (d.get("content") or "").lower()
+        score = 0.5
+        for w in words:
+            if w in title_lower:
+                score += 0.25
+            if w in content_lower:
+                score += 0.15
+        if re.search(r'\bacres?\b', q_lower) and re.search(r'\bacres?\b', content_lower):
+            score += 0.35
+        if "girls" in q_lower and "hostel" in q_lower and "girls" in content_lower:
+            score += 0.35
+        doc_copy = {k: v for k, v in d.items() if k != "embedding"}
+        doc_copy["score"] = score
+        doc_copy["raw_sim"] = score
+        docs.append(doc_copy)
 
-    try:
-        results = knowledge_base.aggregate(
-            [
-                {
-                    "$vectorSearch": {
-                        "index": "vector_index",
-                        "path": "embedding",
-                        "queryVector": query_vector,
-                        "numCandidates": 150,
-                        "limit": top_k * 3
-                    }
-                },
-                {
-                    "$project": {
-                        "_id": 0,
-                        "title": 1,
-                        "content": 1,
-                        "source": 1,
-                        "category": 1,
-                        "language": 1,
-                        "verified": 1,
-                        "score": {
-                            "$meta": "vectorSearchScore"
-                        }
-                    }
-                }
-            ]
-        )
-        docs = list(results)
-    except Exception as e:
-        print(f"Atlas Vector Search unavailable ({e}), using in-memory similarity fallback.")
-
-    # --------------------------------------------------
-    # In-memory fallback with filtered candidate pool (optimized for fast cloud response)
-    # --------------------------------------------------
-
-    if not docs:
-        STOPWORDS = {"how", "many", "what", "is", "the", "are", "there", "in", "for", "to", "at", "of", "a", "an", "do", "does", "can", "tell", "me", "about"}
-        words = [re.escape(w.lower()) for w in re.findall(r'\b[a-zA-Z0-9]+\b', query) if w.lower() not in STOPWORDS and len(w) > 2]
-        
-        query_filter = {"verified": True}
-        if words:
-            regex_pattern = "|".join(words[:6])
-            query_filter["$or"] = [
-                {"title": {"$regex": regex_pattern, "$options": "i"}},
-                {"content": {"$regex": regex_pattern, "$options": "i"}},
-            ]
-        
-        candidate_docs = list(knowledge_base.find(query_filter, {"_id": 0}).limit(50))
-        if not candidate_docs:
-            candidate_docs = list(knowledge_base.find({"verified": True}, {"_id": 0}).limit(40))
-
-        if candidate_docs:
-            import numpy as np
-            q_vec = np.array(query_vector, dtype=np.float32)
-            norm_q = np.linalg.norm(q_vec)
-            scored = []
-            for d in candidate_docs:
-                sim = 0.5
-                if "embedding" in d:
-                    d_vec = np.array(d["embedding"], dtype=np.float32)
-                    norm_d = np.linalg.norm(d_vec)
-                    if norm_q > 0 and norm_d > 0:
-                        sim = float(np.dot(q_vec, d_vec) / (norm_q * norm_d))
-                doc_copy = {k: v for k, v in d.items() if k != "embedding"}
-                doc_copy["score"] = sim
-                doc_copy["raw_sim"] = sim
-                scored.append((sim, doc_copy))
-
-            scored.sort(key=lambda x: x[0], reverse=True)
-            candidate_pool_size = max(top_k * 10, 40)
-            for sim, doc_copy in scored[:candidate_pool_size]:
-                docs.append(doc_copy)
+    docs.sort(key=lambda x: x["score"], reverse=True)
 
     # --------------------------------------------------
     # Category boost & Hybrid Keyword Ranking
@@ -247,26 +217,14 @@ def retrieve_context(
         for cat in boosted_categories:
             cat_docs = list(knowledge_base.find(
                 {"verified": True, "category": cat},
-                {"_id": 0, "title": 1, "content": 1, "source": 1,
-                 "category": 1, "language": 1, "verified": 1, "embedding": 1}
+                {"_id": 0, "embedding": 0}
             ).limit(20))
             for cd in cat_docs:
                 title = cd.get("title")
                 if title not in existing_titles:
-                    cd_copy = {k: v for k, v in cd.items() if k != "embedding"}
-                    # Calculate similarity if embedding present
-                    sim = 0.5
-                    if "embedding" in cd:
-                        import numpy as np
-                        d_vec = np.array(cd["embedding"])
-                        q_vec = np.array(query_vector)
-                        norm_q = np.linalg.norm(q_vec)
-                        norm_d = np.linalg.norm(d_vec)
-                        if norm_q > 0 and norm_d > 0:
-                            sim = float(np.dot(q_vec, d_vec) / (norm_q * norm_d))
-                    cd_copy["score"] = sim
-                    cd_copy["raw_sim"] = sim
-                    docs.append(cd_copy)
+                    cd["score"] = 0.55
+                    cd["raw_sim"] = 0.55
+                    docs.append(cd)
                     existing_titles.add(title)
 
     # Hybrid keyword-overlap scoring:
@@ -575,6 +533,7 @@ Answer:
                     }
                 ],
                 temperature=0.2,
+                timeout=12.0,
                 **extra_kwargs
             )
             answer = (

@@ -203,6 +203,7 @@ def detect_and_translate(text):
                         }
                     ],
                     temperature=0,
+                    timeout=8.0,
                 )
                 if response:
                     break
@@ -303,7 +304,8 @@ Translation:
                         "content": prompt
                     }
                 ],
-                temperature=0
+                temperature=0,
+                timeout=8.0,
             )
             if response:
                 break

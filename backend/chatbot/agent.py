@@ -193,6 +193,7 @@ Standalone question:
                     }
                 ],
                 temperature=0,
+                timeout=6.0,
             )
             if response:
                 break
@@ -373,6 +374,7 @@ Category:
                     }
                 ],
                 temperature=0,
+                timeout=6.0,
             )
             if response:
                 break
